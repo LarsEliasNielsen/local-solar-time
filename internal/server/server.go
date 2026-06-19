@@ -59,13 +59,32 @@ func (s *Server) serve(conn *websocket.Conn) {
 		}
 	}
 
+	// Read continuously in the background so gorilla/websocket can process
+	// control frames - in particular, so a client-initiated close frame is
+	// seen and answered, completing the closing handshake cleanly instead
+	// of leaving the client to time out with an abnormal closure.
+	closed := make(chan struct{})
+	go func() {
+		defer close(closed)
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				return
+			}
+		}
+	}()
+
 	ticker := time.NewTicker(s.Cadence)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		result := solar.Compute(s.Clock.Now(), req.Lat, req.Lon)
-		if err := conn.WriteJSON(toUpdateResponse(result)); err != nil {
+	for {
+		select {
+		case <-closed:
 			return
+		case <-ticker.C:
+			result := solar.Compute(s.Clock.Now(), req.Lat, req.Lon)
+			if err := conn.WriteJSON(toUpdateResponse(result)); err != nil {
+				return
+			}
 		}
 	}
 }

@@ -85,6 +85,41 @@ func TestServeRejectsInvalidCoordinatesAndAllowsRetry(t *testing.T) {
 	}
 }
 
+func TestServeRespondsToClientInitiatedClose(t *testing.T) {
+	fixed := clock.FixedClock{Time: time.Date(2026, 6, 21, 12, 0, 0, 0, time.UTC)}
+	s := New(fixed, 10*time.Millisecond)
+	ts := httptest.NewServer(s.Handler())
+	defer ts.Close()
+
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL(ts), nil)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	if err := conn.WriteJSON(SubscribeRequest{Lat: 10, Lon: 10}); err != nil {
+		t.Fatalf("write subscribe: %v", err)
+	}
+	var got UpdateResponse
+	if err := conn.ReadJSON(&got); err != nil {
+		t.Fatalf("read update: %v", err)
+	}
+
+	closeMsg := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")
+	if err := conn.WriteMessage(websocket.CloseMessage, closeMsg); err != nil {
+		t.Fatalf("write close: %v", err)
+	}
+
+	_, _, err = conn.ReadMessage()
+	closeErr, ok := err.(*websocket.CloseError)
+	if !ok {
+		t.Fatalf("expected the server to answer with a close frame, got %v (%T)", err, err)
+	}
+	if closeErr.Code != websocket.CloseNormalClosure {
+		t.Errorf("close code = %d, want %d", closeErr.Code, websocket.CloseNormalClosure)
+	}
+}
+
 func TestServeNoGoroutineLeakOnDisconnect(t *testing.T) {
 	fixed := clock.FixedClock{Time: time.Date(2026, 6, 21, 12, 0, 0, 0, time.UTC)}
 	s := New(fixed, 5*time.Millisecond)
