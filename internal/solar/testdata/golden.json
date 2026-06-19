@@ -1,0 +1,65 @@
+[
+  {
+    "name": "equator_june_solstice",
+    "source": "Sun's declination at the June solstice is the obliquity of the ecliptic, ~23.44deg (IAU/USNO). Altitude at local solar noon follows the standard identity alt = 90 - |lat - decl|.",
+    "time": "2026-06-21T12:00:00Z",
+    "lat": 0,
+    "lon": 0,
+    "altitude_deg": 66.56,
+    "altitude_tol_deg": 0.5
+  },
+  {
+    "name": "mid_latitude_nh_june_solstice",
+    "source": "Same obliquity constant and noon-altitude identity as equator_june_solstice, evaluated at a mid-northern latitude.",
+    "time": "2026-06-21T12:00:00Z",
+    "lat": 51.5,
+    "lon": 0,
+    "altitude_deg": 61.94,
+    "altitude_tol_deg": 0.5
+  },
+  {
+    "name": "mid_latitude_sh_december_solstice",
+    "source": "December solstice declination is -23.44deg; same noon-altitude identity evaluated at a mid-southern latitude during its summer solstice.",
+    "time": "2026-12-21T12:00:00Z",
+    "lat": -33.87,
+    "lon": 0,
+    "altitude_deg": 79.57,
+    "altitude_tol_deg": 0.5
+  },
+  {
+    "name": "arctic_summer_polar_day",
+    "source": "78N is well above the Arctic Circle (~66.56N); the midnight sun at the June solstice is a standard fact (e.g. Svalbard almanac references).",
+    "time": "2026-06-21T12:00:00Z",
+    "lat": 78,
+    "lon": 0,
+    "polar_day": true
+  },
+  {
+    "name": "arctic_winter_polar_night",
+    "source": "Same latitude six months later, at the December solstice: polar night.",
+    "time": "2026-12-21T12:00:00Z",
+    "lat": 78,
+    "lon": 0,
+    "polar_night": true
+  },
+  {
+    "name": "near_polar_89deg_june_solstice",
+    "source": "At 89N the sun's altitude stays close to the declination all day (colatitude only 1deg); still polar day at the June solstice, with noon altitude near 90-|89-23.44|=24.44deg.",
+    "time": "2026-06-21T12:00:00Z",
+    "lat": 89,
+    "lon": 0,
+    "altitude_deg": 24.44,
+    "altitude_tol_deg": 1.0,
+    "polar_day": true
+  },
+  {
+    "name": "equator_equinox_rise_set",
+    "source": "At the equator, day length is almost constant year-round; with the standard -0.833deg rise/set threshold the half-day is consistently ~6h03m, so sunrise/sunset sit close to 05:57/18:03 apparent solar time (e.g. USNO equator almanac tables).",
+    "time": "2026-03-20T12:00:00Z",
+    "lat": 0,
+    "lon": 0,
+    "sunrise_solar_time": "05:56:40",
+    "sunset_solar_time": "18:03:20",
+    "rise_set_tol_minutes": 1.5
+  }
+]
