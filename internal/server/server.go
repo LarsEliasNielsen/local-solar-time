@@ -39,14 +39,24 @@ func (s *Server) Handler() http.Handler {
 	})
 }
 
-// serve reads the client's one-time subscribe message, then pushes a freshly
-// computed solar payload on every tick until the connection closes.
+// serve reads subscribe messages until one passes validation - replying with
+// an ErrorResponse and retrying on failure - then pushes a freshly computed
+// solar payload on every tick until the connection closes.
 func (s *Server) serve(conn *websocket.Conn) {
 	defer func() { _ = conn.Close() }()
 
 	var req SubscribeRequest
-	if err := conn.ReadJSON(&req); err != nil {
-		return
+	for {
+		if err := conn.ReadJSON(&req); err != nil {
+			return
+		}
+		err := validate(req)
+		if err == nil {
+			break
+		}
+		if writeErr := conn.WriteJSON(ErrorResponse{Error: err.Error()}); writeErr != nil {
+			return
+		}
 	}
 
 	ticker := time.NewTicker(s.Cadence)
@@ -54,7 +64,7 @@ func (s *Server) serve(conn *websocket.Conn) {
 
 	for range ticker.C {
 		result := solar.Compute(s.Clock.Now(), req.Lat, req.Lon)
-		if err := conn.WriteJSON(result); err != nil {
+		if err := conn.WriteJSON(toUpdateResponse(result)); err != nil {
 			return
 		}
 	}

@@ -41,11 +41,19 @@ The server then streams JSON updates at the configured cadence:
   "today": {
     "sunrise": { "solar_time": "04:51:00", "utc": "2026-06-14T02:54:00Z" },
     "sunset":  { "solar_time": "19:09:00", "utc": "2026-06-14T17:12:00Z" }
-  }
+  },
+  "previous_sunrise": { "solar_time": "04:51:00", "utc": "2026-06-13T02:54:00Z" },
+  "next_sunrise":     { "solar_time": "04:51:00", "utc": "2026-06-14T02:54:00Z" },
+  "previous_sunset":  { "solar_time": "19:09:00", "utc": "2026-06-13T17:12:00Z" },
+  "next_sunset":      { "solar_time": "19:09:00", "utc": "2026-06-14T17:12:00Z" }
 }
 ```
 
-> The WebSocket endpoint, subscribe protocol, and full response schema are implemented in a later milestone; this scaffold builds, lints, and runs but does not yet serve this contract.
+Above latitude ~89.4°, `solar_time`, `azimuth_deg`, `solar_noon`, `today`, and the four `*_sunrise`/`*_sunset` fields are `null`, and a `polar_cap` object with a `reason` string is added instead. During polar day or polar night at lower latitudes, `today.sunrise`/`today.sunset` are `null` but the bracketing `previous_sunrise`/`next_sunrise`/`previous_sunset`/`next_sunset` fields are omitted entirely.
+
+Invalid coordinates (e.g. `lat` outside ±90) get `{ "error": "..." }` instead of an update, and the connection stays open for another subscribe attempt.
+
+> The solar engine, clock injection, WebSocket transport, coordinate validation, and this exact response contract are implemented and tested (`internal/solar`, `internal/clock`, `internal/server`). The binary itself doesn't wire them together yet - `cmd/local-solar-time/main.go` still only prints the version, and `config.Load()` is unimplemented - so `make build`/`make docker-up` does not yet start a listening server. That wiring (listen address, cadence, graceful shutdown) is the next milestone.
 
 ## Environment variables
 

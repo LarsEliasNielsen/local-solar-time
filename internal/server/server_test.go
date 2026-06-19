@@ -38,16 +38,50 @@ func TestServeIndependentClients(t *testing.T) {
 				t.Fatalf("write subscribe: %v", err)
 			}
 
-			var got solar.Result
+			var got UpdateResponse
 			if err := conn.ReadJSON(&got); err != nil {
 				t.Fatalf("read update: %v", err)
 			}
 
-			want := solar.Compute(fixed.Now(), lat, lon)
+			want := toUpdateResponse(solar.Compute(fixed.Now(), lat, lon))
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("lat=%v lon=%v: got %+v, want %+v", lat, lon, got, want)
 			}
 		}()
+	}
+}
+
+func TestServeRejectsInvalidCoordinatesAndAllowsRetry(t *testing.T) {
+	fixed := clock.FixedClock{Time: time.Date(2026, 6, 21, 12, 0, 0, 0, time.UTC)}
+	s := New(fixed, 10*time.Millisecond)
+	ts := httptest.NewServer(s.Handler())
+	defer ts.Close()
+
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL(ts), nil)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	if err := conn.WriteJSON(SubscribeRequest{Lat: 200, Lon: 0}); err != nil {
+		t.Fatalf("write invalid subscribe: %v", err)
+	}
+
+	var errResp ErrorResponse
+	if err := conn.ReadJSON(&errResp); err != nil {
+		t.Fatalf("read error response: %v", err)
+	}
+	if errResp.Error == "" {
+		t.Error("expected a non-empty error message")
+	}
+
+	if err := conn.WriteJSON(SubscribeRequest{Lat: 10, Lon: 10}); err != nil {
+		t.Fatalf("write valid subscribe after retry: %v", err)
+	}
+
+	var got UpdateResponse
+	if err := conn.ReadJSON(&got); err != nil {
+		t.Fatalf("read update after valid subscribe: %v", err)
 	}
 }
 
@@ -66,7 +100,7 @@ func TestServeNoGoroutineLeakOnDisconnect(t *testing.T) {
 	if err := conn.WriteJSON(SubscribeRequest{Lat: 10, Lon: 10}); err != nil {
 		t.Fatalf("write subscribe: %v", err)
 	}
-	var got solar.Result
+	var got UpdateResponse
 	if err := conn.ReadJSON(&got); err != nil {
 		t.Fatalf("read update: %v", err)
 	}
