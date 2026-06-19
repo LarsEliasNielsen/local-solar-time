@@ -1,0 +1,11 @@
+.git
+.gitignore
+.gitattributes
+.golangci.yml
+.env
+*.md
+*.pdf
+*.png
+.claude/
+CLAUDE.md
+LICENSE

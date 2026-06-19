@@ -1,0 +1,27 @@
+# NOTE: the host running this container must have an NTP-synchronized clock.
+# Solar time accuracy depends entirely on the accuracy of the server's wall clock.
+
+services:
+  solar-time-service:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - SOLAR_LISTEN=${SOLAR_LISTEN:-:8080}
+      - SOLAR_CADENCE=${SOLAR_CADENCE:-1s}
+    networks:
+      - solar-net
+
+  # Placeholder for the future Flutter web frontend container.
+  # frontend:
+  #   build: ./frontend
+  #   ports:
+  #     - "8081:80"
+  #   networks:
+  #     - solar-net
+  #   depends_on:
+  #     - solar-time-service
+
+networks:
+  solar-net:
+    name: solar-net

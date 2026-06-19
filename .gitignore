@@ -1,0 +1,18 @@
+# Build artifacts
+/local-solar-time
+*.exe
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# Secrets
+.env
+
+# Claude files
+CLAUDE.md
+.claude/
+
+# Project planning documents
+local-solar-time*.md
