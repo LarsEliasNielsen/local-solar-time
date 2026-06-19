@@ -4,4 +4,7 @@ go 1.23
 
 require github.com/soniakeys/meeus/v3 v3.0.1
 
-require github.com/soniakeys/unit v1.0.0 // indirect
+require (
+	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/soniakeys/unit v1.0.0 // indirect
+)

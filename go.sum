@@ -1,3 +1,5 @@
+github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=
+github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/soniakeys/meeus/v3 v3.0.1 h1:inZIhWUeyumGoQ//CCZMI4qR2vPKCS6LbVPca2mDvqE=
 github.com/soniakeys/meeus/v3 v3.0.1/go.mod h1:G1tkqa+QcOyErSe7WqN0OnzVeLrvq9bQBoNb1IG+3n8=
 github.com/soniakeys/sexagesimal v1.0.0 h1:p4OW7ID1naq0+k0Sn/gvuS2hRgmEcuJrZeyyntOGLvU=
