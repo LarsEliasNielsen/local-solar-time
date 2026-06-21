@@ -2,9 +2,11 @@ package server
 
 import (
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/rs/zerolog"
 
 	"local-solar-time/internal/clock"
 	"local-solar-time/internal/solar"
@@ -18,6 +20,11 @@ type SubscribeRequest struct {
 type Server struct {
 	Clock   clock.Clock
 	Cadence time.Duration
+	Logger  zerolog.Logger
+
+	done      chan struct{}
+	closeOnce sync.Once
+	wg        sync.WaitGroup
 }
 
 var upgrader = websocket.Upgrader{
@@ -25,7 +32,7 @@ var upgrader = websocket.Upgrader{
 }
 
 func New(c clock.Clock, cadence time.Duration) *Server {
-	return &Server{Clock: c, Cadence: cadence}
+	return &Server{Clock: c, Cadence: cadence, Logger: zerolog.Nop(), done: make(chan struct{})}
 }
 
 // Handler upgrades each request to a WebSocket connection and serves it on its own goroutine.
@@ -35,8 +42,20 @@ func (s *Server) Handler() http.Handler {
 		if err != nil {
 			return
 		}
-		go s.serve(conn)
+		s.wg.Add(1)
+		go func() {
+			defer s.wg.Done()
+			s.serve(conn)
+		}()
 	})
+}
+
+// Shutdown signals every in-flight connection to close - each gets a
+// server-initiated close frame, mirroring the courtesy already extended to
+// client-initiated closes - then blocks until all of them have exited.
+func (s *Server) Shutdown() {
+	s.closeOnce.Do(func() { close(s.done) })
+	s.wg.Wait()
 }
 
 // serve reads subscribe messages until one passes validation - replying with
@@ -59,6 +78,8 @@ func (s *Server) serve(conn *websocket.Conn) {
 		}
 	}
 
+	s.Logger.Debug().Float64("lat", req.Lat).Float64("lon", req.Lon).Msg("client subscribed")
+
 	// Read continuously in the background so gorilla/websocket can process
 	// control frames - in particular, so a client-initiated close frame is
 	// seen and answered, completing the closing handshake cleanly instead
@@ -79,6 +100,10 @@ func (s *Server) serve(conn *websocket.Conn) {
 	for {
 		select {
 		case <-closed:
+			return
+		case <-s.done:
+			closeMsg := websocket.FormatCloseMessage(websocket.CloseGoingAway, "server shutting down")
+			_ = conn.WriteMessage(websocket.CloseMessage, closeMsg)
 			return
 		case <-ticker.C:
 			result := solar.Compute(s.Clock.Now(), req.Lat, req.Lon)

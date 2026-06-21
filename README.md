@@ -53,16 +53,16 @@ Above latitude ~89.4°, `solar_time`, `azimuth_deg`, `solar_noon`, `today`, and 
 
 Invalid coordinates (e.g. `lat` outside ±90) get `{ "error": "..." }` instead of an update, and the connection stays open for another subscribe attempt.
 
-> The solar engine, clock injection, WebSocket transport, coordinate validation, and this exact response contract are implemented and tested (`internal/solar`, `internal/clock`, `internal/server`). The binary itself doesn't wire them together yet - `cmd/local-solar-time/main.go` still only prints the version, and `config.Load()` is unimplemented - so `make build`/`make docker-up` does not yet start a listening server. That wiring (listen address, cadence, graceful shutdown) is the next milestone.
-
 ## Environment variables
 
-| Variable | Default | Description |
-|---|---|---|
-| `SOLAR_LISTEN` | `:8080` | WebSocket listen address |
-| `SOLAR_CADENCE` | `1s` | Update push interval |
+| Variable | Flag | Default | Description |
+|---|---|---|---|
+| `SOLAR_PORT` | `--port` | `8080` | WebSocket listen port (also used by `docker-compose.yml`'s published port mapping) |
+| `SOLAR_CADENCE` | `--cadence` | `1s` | Update push interval (e.g. `1s`, `500ms`) |
 
-Copy `.env.example` to `.env` to override locally.
+Precedence is flag > environment variable > default. Copy `.env.example` to `.env` to override locally.
+
+The process logs structured JSON to stdout (via `zerolog`) and shuts down gracefully on `SIGINT`/`SIGTERM`, closing in-flight WebSocket connections before exiting.
 
 ## Tests and lint
 
