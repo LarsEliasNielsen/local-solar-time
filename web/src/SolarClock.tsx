@@ -66,7 +66,8 @@ export default function SolarClock({ update, locationChanged }: SolarClockProps)
 
   const hasAnimated = useRef(false);
   const animFrameRef = useRef<number | null>(null);
-  const prevRef = useRef<VisualAngles>({ needle: Math.PI, sunrise: null, sunset: null });
+  const tweenPendingRef = useRef(false);
+  const tweenFromRef = useRef<VisualAngles>({ needle: null, sunrise: null, sunset: null });
 
   const target = deriveTargetAngles(update);
 
@@ -92,7 +93,6 @@ export default function SolarClock({ update, locationChanged }: SolarClockProps)
       if (t < 1) {
         animFrameRef.current = requestAnimationFrame(frame);
       } else {
-        prevRef.current = to;
         animFrameRef.current = null;
       }
     }
@@ -104,34 +104,38 @@ export default function SolarClock({ update, locationChanged }: SolarClockProps)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target.needle !== null]);
 
-  // Location change tween: interpolates needle and arc boundaries over 0.4s
-  const locationChangedSeenRef = useRef(locationChanged);
+  // When location changes, capture the current rendered angles as the tween start point.
+  // The new update hasn't arrived yet, so we can't start the tween here — just set a flag.
   useEffect(() => {
     if (!hasAnimated.current) return;
-    if (locationChangedSeenRef.current === locationChanged) return;
-    locationChangedSeenRef.current = locationChanged;
+    tweenFromRef.current = { ...visual };
+    tweenPendingRef.current = true;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationChanged]);
+
+  // When a new target arrives after a location change, play the tween from the captured state.
+  useEffect(() => {
+    if (!tweenPendingRef.current || target.needle === null) return;
+    tweenPendingRef.current = false;
 
     if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
 
-    const from = { ...prevRef.current };
-    const to = target;
+    const from = { ...tweenFromRef.current };
+    const to = { ...target };
     const start = performance.now();
     const duration = 400;
 
     function frame(now: number) {
-      const t = Math.min((now - start) / duration, 1);
-      const e = easeInOut(t);
-
+      const raw = Math.min((now - start) / duration, 1);
+      const e = easeInOut(raw);
       setVisual({
         needle: lerp(from.needle ?? Math.PI, to.needle ?? Math.PI, e),
         sunrise: lerp(from.sunrise, to.sunrise, e),
         sunset: lerp(from.sunset, to.sunset, e),
       });
-
-      if (t < 1) {
+      if (raw < 1) {
         animFrameRef.current = requestAnimationFrame(frame);
       } else {
-        prevRef.current = to;
         animFrameRef.current = null;
       }
     }
@@ -141,7 +145,7 @@ export default function SolarClock({ update, locationChanged }: SolarClockProps)
       if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationChanged]);
+  }, [target.needle, target.sunrise, target.sunset]);
 
   // Real-time updates: apply each incoming tick. Use functional form so React bails out when
   // values are identical (avoids an infinite re-render loop from the no-deps effect).
@@ -152,7 +156,6 @@ export default function SolarClock({ update, locationChanged }: SolarClockProps)
       prev.needle === t.needle && prev.sunrise === t.sunrise && prev.sunset === t.sunset
         ? prev : t
     );
-    prevRef.current = t;
   });
 
   const needleEnd = visual.needle !== null ? arcPoint(visual.needle) : null;
