@@ -1,25 +1,37 @@
 # local-solar-time
 
-A Go service that streams apparent (true) solar time, Sun position, and rise/set events over WebSocket for any latitude/longitude, computed continuously from the server's own NTP-disciplined clock.
+A Go service that streams apparent (true) solar time, Sun position, and rise/set events over WebSocket for any latitude/longitude, computed continuously from the server's own NTP-disciplined clock. Ships with a Vite + React + TypeScript web frontend served by nginx that visualizes solar time on an SVG half-circle clock, with browser geolocation, manual coordinate input, and automatic reconnection.
 
 ## Prerequisites
 
-- Go 1.23+
-- Docker (with the Compose plugin)
-- An NTP-synchronized host clock - solar time accuracy depends entirely on it
+- Docker with the Compose plugin
+- Go 1.23+ — only needed for local builds outside Docker
+- An NTP-synchronized host clock — solar time accuracy depends entirely on it
 
 ## Quick start
 
 ```sh
 git clone <repo-url>
 cd local-solar-time
-make build       # local binary at ./local-solar-time
-make docker-up   # builds and runs the service in Docker
+make docker-up   # builds images and starts both services
 ```
 
-## Connecting
+Open `http://localhost` for the web UI, or connect a headless client directly to the WebSocket endpoint (see [Backend](#backend)).
 
-The service exposes a WebSocket endpoint. Connect, then send a subscribe message once with your location:
+## Frontend
+
+A Vite + React + TypeScript single-page app served by nginx on port 80.
+
+- Connects immediately with the default location (Copenhagen, `lat: 55.6761, lon: 12.5683`) so the clock is visible before any geolocation prompt.
+- Requests browser geolocation in the background; on grant, transitions to the real location with a ~0.4s tween.
+- Manual lat/lon inputs with inline validation let you override the location at any time.
+- Reconnects automatically with exponential backoff (1s initial, 30s cap) on connection loss.
+
+## Backend
+
+### WebSocket API
+
+Connect, then send a subscribe message once with your location:
 
 ```json
 { "lat": 55.6761, "lon": 12.5683 }
@@ -53,22 +65,28 @@ Above latitude ~89.4°, `solar_time`, `azimuth_deg`, `solar_noon`, `today`, and 
 
 Invalid coordinates (e.g. `lat` outside ±90) get `{ "error": "..." }` instead of an update, and the connection stays open for another subscribe attempt.
 
-## Environment variables
+### Configuration
 
 | Variable | Flag | Default | Description |
 |---|---|---|---|
-| `SOLAR_PORT` | `--port` | `8080` | WebSocket listen port (also used by `docker-compose.yml`'s published port mapping) |
+| `SOLAR_PORT` | `--port` | `8080` | Backend WebSocket listen port (internal to the Compose network; the nginx frontend is always on port 80) |
 | `SOLAR_CADENCE` | `--cadence` | `1s` | Update push interval (e.g. `1s`, `500ms`) |
 
 Precedence is flag > environment variable > default. Copy `.env.example` to `.env` to override locally.
 
 The process logs structured JSON to stdout (via `zerolog`) and shuts down gracefully on `SIGINT`/`SIGTERM`, closing in-flight WebSocket connections before exiting.
 
+## Development
+
+```sh
+make build   # compile the local binary to ./local-solar-time
+```
+
 ## Tests and lint
 
 ```sh
-make test
-make lint
+make test   # Go package tests
+make lint   # Go package linting (golangci-lint)
 ```
 
 ## License
