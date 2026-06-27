@@ -70,10 +70,11 @@ export default function SolarClock({ update, locationChanged }: SolarClockProps)
   const tweenFromRef = useRef<VisualAngles>({ needle: null, sunrise: null, sunset: null });
 
   const target = deriveTargetAngles(update);
+  const hasFirstUpdate = target.needle !== null;
 
   // Start animation: sweeps needle from midnight to current time, arc boundaries grow from edges
   useEffect(() => {
-    if (hasAnimated.current || target.needle === null) return;
+    if (hasAnimated.current || !hasFirstUpdate) return;
     hasAnimated.current = true;
 
     const to = target;
@@ -102,7 +103,7 @@ export default function SolarClock({ update, locationChanged }: SolarClockProps)
       if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target.needle !== null]);
+  }, [hasFirstUpdate]);
 
   // When location changes, capture the current rendered angles as the tween start point.
   // The new update hasn't arrived yet, so we can't start the tween here — just set a flag.
@@ -147,8 +148,8 @@ export default function SolarClock({ update, locationChanged }: SolarClockProps)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target.needle, target.sunrise, target.sunset]);
 
-  // Real-time updates: apply each incoming tick. Use functional form so React bails out when
-  // values are identical (avoids an infinite re-render loop from the no-deps effect).
+  // Real-time updates: sync visual to target on each tick; bail out if unchanged to avoid
+  // re-renders, and skip while an animation is running.
   useEffect(() => {
     if (!hasAnimated.current || animFrameRef.current !== null) return;
     const t = target;
@@ -156,7 +157,7 @@ export default function SolarClock({ update, locationChanged }: SolarClockProps)
       prev.needle === t.needle && prev.sunrise === t.sunrise && prev.sunset === t.sunset
         ? prev : t
     );
-  });
+  }, [target.needle, target.sunrise, target.sunset]);
 
   const needleEnd = visual.needle !== null ? arcPoint(visual.needle) : null;
   const showNeedle = needleEnd !== null && update?.solar_time != null;
