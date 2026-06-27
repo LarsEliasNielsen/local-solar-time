@@ -16,3 +16,7 @@ CLAUDE.md
 
 # Project planning documents
 local-solar-time*.md
+
+# Frontend
+web/node_modules/
+web/dist/

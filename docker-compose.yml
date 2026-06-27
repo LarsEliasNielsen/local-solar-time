@@ -4,23 +4,22 @@
 services:
   solar-time-service:
     build: .
-    ports:
-      - "${SOLAR_PORT:-8080}:${SOLAR_PORT:-8080}"
     environment:
       - SOLAR_PORT=${SOLAR_PORT:-8080}
       - SOLAR_CADENCE=${SOLAR_CADENCE:-1s}
     networks:
       - solar-net
 
-  # Placeholder for the future Flutter web frontend container.
-  # frontend:
-  #   build: ./frontend
-  #   ports:
-  #     - "8081:80"
-  #   networks:
-  #     - solar-net
-  #   depends_on:
-  #     - solar-time-service
+  frontend:
+    build: ./web
+    ports:
+      - "80:80"
+    environment:
+      - SOLAR_PORT=${SOLAR_PORT:-8080}
+    networks:
+      - solar-net
+    depends_on:
+      - solar-time-service
 
 networks:
   solar-net:
