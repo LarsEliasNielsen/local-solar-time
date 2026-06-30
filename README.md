@@ -5,8 +5,9 @@ A Go service that streams apparent (true) solar time, Sun position, and rise/set
 ## Prerequisites
 
 - Docker with the Compose plugin
-- Go 1.23+ — only needed for local builds outside Docker
-- An NTP-synchronized host clock — solar time accuracy depends entirely on it
+- An NTP-synchronized host clock - solar time accuracy depends entirely on it
+- Go 1.23+ - only needed for local backend builds outside Docker
+- Node.js 20+ and npm - only needed for local frontend builds outside Docker
 
 ## Quick start
 
@@ -78,16 +79,39 @@ The process logs structured JSON to stdout (via `zerolog`) and shuts down gracef
 
 ## Development
 
+**Backend:**
+
 ```sh
 make build   # compile the local binary to ./local-solar-time
 ```
 
+**Frontend** (run from `web/`):
+
+```sh
+npm install      # install dependencies (first time, or after package.json changes)
+npm run build    # TypeScript type-check + Vite production build
+npm run dev      # Vite dev server on http://localhost:5173 - proxies /ws to the backend
+```
+
+The dev server reads `SOLAR_PORT` from `.env` in the repo root to know where to proxy WebSocket connections. Start the backend separately with `make build && ./local-solar-time` (or `make docker-up` for the full stack).
+
 ## Tests and lint
+
+**Backend:**
 
 ```sh
 make test   # Go package tests
-make lint   # Go package linting (golangci-lint)
+make lint   # Go linting (golangci-lint)
+make fmt    # format with goimports
 ```
+
+**Frontend** (run from `web/`):
+
+```sh
+npm run lint    # ESLint - includes react-compiler/react-compiler rule
+```
+
+No automated frontend tests exist; correctness is verified by `npm run build` (TypeScript) and the manual smoke test checklist in the project documentation.
 
 ## License
 

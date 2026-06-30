@@ -111,7 +111,7 @@ export default function SolarClock({ solarTime, today, altitudeDeg, locationChan
   }, [hasFirstUpdate]);
 
   // When location changes, capture the current rendered angles as the tween start point.
-  // The new update hasn't arrived yet, so we can't start the tween here — just set a flag.
+  // The new update hasn't arrived yet, so we can't start the tween here - just set a flag.
   useEffect(() => {
     if (!hasAnimated.current) return;
     tweenFromRef.current = { ...visualRef.current };
@@ -169,7 +169,7 @@ export default function SolarClock({ solarTime, today, altitudeDeg, locationChan
   let baseColor = '#3D4A5C';
   if (today === null) baseColor = '#6B7280';
 
-  // Wedge paths only change when sunrise/sunset angles change — memoize to skip per-tick recomputation
+  // Wedge paths only change when sunrise/sunset angles change - memoize to skip per-tick recomputation
   const arcPaths = useMemo(() => {
     if (visual.sunrise === null || visual.sunset === null) return null;
     return {
