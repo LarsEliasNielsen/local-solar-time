@@ -1,3 +1,5 @@
+export type LocationSource = 'default' | 'gps' | 'manual';
+
 export interface SolarEvent {
   solar_time: string;
   utc: string;

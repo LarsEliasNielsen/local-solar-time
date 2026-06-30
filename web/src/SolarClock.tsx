@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
-import type { SolarUpdate } from './types';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { Today } from './types';
 
 interface SolarClockProps {
-  update: SolarUpdate | null;
+  solarTime: string | null;
+  today: Today | null;
+  altitudeDeg: number;
   locationChanged: boolean;
 }
 
@@ -46,13 +48,11 @@ interface VisualAngles {
   sunset: number | null;
 }
 
-function deriveTargetAngles(update: SolarUpdate | null): VisualAngles {
-  if (!update) return { needle: null, sunrise: null, sunset: null };
-  const needle = update.solar_time ? solarAngle(timeToSeconds(update.solar_time)) : null;
-  const sunrise = update.today?.sunrise
-    ? solarAngle(timeToSeconds(update.today.sunrise.solar_time)) : null;
-  const sunset = update.today?.sunset
-    ? solarAngle(timeToSeconds(update.today.sunset.solar_time)) : null;
+function deriveTargetAngles(solarTime: string | null, today: Today | null): VisualAngles {
+  if (!solarTime && !today) return { needle: null, sunrise: null, sunset: null };
+  const needle = solarTime ? solarAngle(timeToSeconds(solarTime)) : null;
+  const sunrise = today?.sunrise ? solarAngle(timeToSeconds(today.sunrise.solar_time)) : null;
+  const sunset  = today?.sunset  ? solarAngle(timeToSeconds(today.sunset.solar_time))  : null;
   return { needle, sunrise, sunset };
 }
 
@@ -61,7 +61,7 @@ function lerp(a: number | null, b: number | null, t: number): number | null {
   return a + (b - a) * t;
 }
 
-export default function SolarClock({ update, locationChanged }: SolarClockProps) {
+export default function SolarClock({ solarTime, today, altitudeDeg, locationChanged }: SolarClockProps) {
   const [visual, setVisual] = useState<VisualAngles>({ needle: null, sunrise: null, sunset: null });
 
   const hasAnimated = useRef(false);
@@ -69,15 +69,21 @@ export default function SolarClock({ update, locationChanged }: SolarClockProps)
   const tweenPendingRef = useRef(false);
   const tweenFromRef = useRef<VisualAngles>({ needle: null, sunrise: null, sunset: null });
 
-  const target = deriveTargetAngles(update);
+  const target = deriveTargetAngles(solarTime, today);
   const hasFirstUpdate = target.needle !== null;
+
+  const visualRef = useRef<VisualAngles>({ needle: null, sunrise: null, sunset: null });
+  visualRef.current = visual;
+
+  const targetRef = useRef<VisualAngles>({ needle: null, sunrise: null, sunset: null });
+  targetRef.current = target;
 
   // Start animation: sweeps needle from midnight to current time, arc boundaries grow from edges
   useEffect(() => {
     if (hasAnimated.current || !hasFirstUpdate) return;
     hasAnimated.current = true;
 
-    const to = target;
+    const to = { ...targetRef.current };
     const start = performance.now();
     const duration = 800;
 
@@ -102,16 +108,14 @@ export default function SolarClock({ update, locationChanged }: SolarClockProps)
     return () => {
       if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasFirstUpdate]);
 
   // When location changes, capture the current rendered angles as the tween start point.
   // The new update hasn't arrived yet, so we can't start the tween here — just set a flag.
   useEffect(() => {
     if (!hasAnimated.current) return;
-    tweenFromRef.current = { ...visual };
+    tweenFromRef.current = { ...visualRef.current };
     tweenPendingRef.current = true;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationChanged]);
 
   // When a new target arrives after a location change, play the tween from the captured state.
@@ -122,7 +126,7 @@ export default function SolarClock({ update, locationChanged }: SolarClockProps)
     if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
 
     const from = { ...tweenFromRef.current };
-    const to = { ...target };
+    const to = { ...targetRef.current };
     const start = performance.now();
     const duration = 400;
 
@@ -145,7 +149,6 @@ export default function SolarClock({ update, locationChanged }: SolarClockProps)
     return () => {
       if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target.needle, target.sunrise, target.sunset]);
 
   // Real-time updates: sync visual to target on each tick; bail out if unchanged to avoid
@@ -160,25 +163,26 @@ export default function SolarClock({ update, locationChanged }: SolarClockProps)
   }, [target.needle, target.sunrise, target.sunset]);
 
   const needleEnd = visual.needle !== null ? arcPoint(visual.needle) : null;
-  const showNeedle = needleEnd !== null && update?.solar_time != null;
+  const showNeedle = needleEnd !== null && solarTime != null;
 
-  // Derive filled wedge paths
   const fullWedge = wedgePath(Math.PI, 0);
   let baseColor = '#3D4A5C';
-  if (!update || update.today === null) baseColor = '#6B7280';
+  if (today === null) baseColor = '#6B7280';
 
-  let leftWedge = '';
-  let dayWedge = '';
-  let rightWedge = '';
+  // Wedge paths only change when sunrise/sunset angles change — memoize to skip per-tick recomputation
+  const arcPaths = useMemo(() => {
+    if (visual.sunrise === null || visual.sunset === null) return null;
+    return {
+      left:  wedgePath(Math.PI, visual.sunrise),
+      day:   wedgePath(visual.sunrise, visual.sunset),
+      right: wedgePath(visual.sunset, 0),
+    };
+  }, [visual.sunrise, visual.sunset]);
 
-  if (update && update.today !== null) {
-    if (visual.sunrise === null && visual.sunset === null) {
-      baseColor = update.altitude_deg > 0 ? '#F97316' : '#3D4A5C';
-    } else if (visual.sunrise !== null && visual.sunset !== null) {
-      leftWedge  = wedgePath(Math.PI, visual.sunrise);
-      dayWedge   = wedgePath(visual.sunrise, visual.sunset);
-      rightWedge = wedgePath(visual.sunset, 0);
-    }
+  // Polar day/night: today exists but no sunrise or sunset
+  let polarBaseColor: string | null = null;
+  if (today !== null && visual.sunrise === null && visual.sunset === null) {
+    polarBaseColor = altitudeDeg > 0 ? '#F97316' : '#3D4A5C';
   }
 
   return (
@@ -188,12 +192,12 @@ export default function SolarClock({ update, locationChanged }: SolarClockProps)
       aria-label="Solar time clock"
     >
       {/* Filled half-circle: full wedge as base, then day/night wedges on top */}
-      {!dayWedge && <path d={fullWedge} fill={baseColor} />}
-      {dayWedge && (
+      {!arcPaths && <path d={fullWedge} fill={polarBaseColor ?? baseColor} />}
+      {arcPaths && (
         <>
-          <path d={leftWedge}  fill="#3D4A5C" />
-          <path d={dayWedge}   fill="#F97316" />
-          <path d={rightWedge} fill="#3D4A5C" />
+          <path d={arcPaths.left}  fill="#3D4A5C" />
+          <path d={arcPaths.day}   fill="#F97316" />
+          <path d={arcPaths.right} fill="#3D4A5C" />
         </>
       )}
 
