@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import SolarClock from './SolarClock';
+import ClockDisplay from './ClockDisplay';
+import SolarInfo from './SolarInfo';
+import LocationControls from './LocationControls';
 import { getLocation } from './geo';
 import { openSocket } from './ws';
-import type { SolarUpdate } from './types';
+import type { SolarUpdate, LocationSource } from './types';
 
 const DEFAULT_LAT = 55.6761;
 const DEFAULT_LON = 12.5683;
 
 const RECONNECT_INITIAL_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
-
-type LocationSource = 'default' | 'gps' | 'manual';
 
 interface Coords {
   lat: number;
@@ -21,12 +22,6 @@ type AppState =
   | { phase: 'connecting'; coords: Coords; locationSource: LocationSource }
   | { phase: 'connected'; update: SolarUpdate; coords: Coords; locationSource: LocationSource }
   | { phase: 'reconnecting'; delay: number; coords: Coords; locationSource: LocationSource };
-
-function formatNoonUtc(utc: string | null): string {
-  if (!utc) return '--';
-  const d = new Date(utc);
-  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')} UTC`;
-}
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>({
@@ -142,133 +137,30 @@ export default function App() {
     );
   }
 
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') handleManualSubmit();
-  }
-
-  const update = appState.phase === 'connected' ? appState.update : lastUpdateRef.current;
-  const locationSource = appState.locationSource;
-  const isGpsActive = locationSource === 'gps';
+  const update      = appState.phase === 'connected' ? appState.update : lastUpdateRef.current;
+  const solarTime   = update?.solar_time ?? null;
+  const today       = update?.today ?? null;
+  const altitudeDeg = Math.round((update?.altitude_deg ?? 0) * 10) / 10;
+  const solarNoon   = update?.solar_noon ?? null;
+  const polarCap    = update?.polar_cap;
+  const isGpsActive = appState.locationSource === 'gps';
 
   return (
     <div style={{ maxWidth: '640px', margin: '0 auto', padding: '16px', fontFamily: 'system-ui, sans-serif', color: '#F9FAFB' }}>
-      <p style={{ textAlign: 'center', fontSize: '3rem', fontVariantNumeric: 'tabular-nums', margin: '0 0 8px', letterSpacing: '0.05em' }}>
-        {update?.solar_time ?? '--:--:--'}
-      </p>
-
-      <SolarClock update={update} locationChanged={locationChanged} />
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', margin: '12px 0', fontSize: '0.875rem' }}>
-        <div>
-          <span style={{ color: '#9CA3AF' }}>Sunrise (ST)</span><br />
-          {update?.today?.sunrise?.solar_time ?? (update?.today === null ? '--' : 'No sunrise today')}
-        </div>
-        <div>
-          <span style={{ color: '#9CA3AF' }}>Sunset (ST)</span><br />
-          {update?.today?.sunset?.solar_time ?? (update?.today === null ? '--' : 'No sunset today')}
-        </div>
-        <div>
-          <span style={{ color: '#9CA3AF' }}>Solar noon</span><br />
-          {update ? formatNoonUtc(update.solar_noon?.utc ?? null) : '--'}
-        </div>
-        <div>
-          <span style={{ color: '#9CA3AF' }}>Altitude</span><br />
-          {update ? `${update.altitude_deg.toFixed(1)}°` : '--'}
-        </div>
-      </div>
-
-      {update?.polar_cap && (
-        <p style={{ fontSize: '0.75rem', color: '#9CA3AF', margin: '4px 0 8px' }}>{update.polar_cap.reason}</p>
-      )}
-
+      <ClockDisplay solarTime={solarTime} />
+      <SolarClock solarTime={solarTime} today={today} altitudeDeg={altitudeDeg} locationChanged={locationChanged} />
+      <SolarInfo today={today} solarNoon={solarNoon} altitudeDeg={altitudeDeg} polarCap={polarCap} />
       {appState.phase === 'reconnecting' && (
-        <p style={{ fontSize: '0.8rem', color: '#FBBF24', margin: '4px 0' }}>
+        <p role="status" style={{ fontSize: '0.8rem', color: '#FBBF24', margin: '4px 0' }}>
           Reconnecting in {appState.delay}s&hellip;
         </p>
       )}
-
-      <div style={{ marginTop: '12px' }}>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <label style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>
-            Lat
-            <input
-              type="number" min={-90} max={90} step={0.0001}
-              value={latInput}
-              onChange={e => setLatInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              style={inputStyle}
-            />
-          </label>
-          <label style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>
-            Lon
-            <input
-              type="number" min={-180} max={180} step={0.0001}
-              value={lonInput}
-              onChange={e => setLonInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              style={inputStyle}
-            />
-          </label>
-          <button onClick={handleManualSubmit} style={applyButtonStyle}>Apply</button>
-          <button
-            onClick={handleGeoButton}
-            disabled={isGpsActive}
-            style={isGpsActive ? mutedButtonStyle : activeButtonStyle}
-          >
-            {isGpsActive ? 'GPS active' : geoButtonLabel}
-          </button>
-        </div>
-        {locationSource === 'default' && !inputError && (
-          <p style={{ fontSize: '0.75rem', color: '#6B7280', margin: '4px 0 0' }}>Default location (Copenhagen)</p>
-        )}
-        {inputError && (
-          <p style={{ fontSize: '0.75rem', color: '#F87171', margin: '4px 0 0' }}>{inputError}</p>
-        )}
-      </div>
+      <LocationControls
+        latInput={latInput} lonInput={lonInput} inputError={inputError}
+        geoButtonLabel={geoButtonLabel} isGpsActive={isGpsActive} locationSource={appState.locationSource}
+        onLatChange={setLatInput} onLonChange={setLonInput}
+        onSubmit={handleManualSubmit} onGeoButton={handleGeoButton}
+      />
     </div>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  display: 'block',
-  background: '#1F2937',
-  border: '1px solid #374151',
-  borderRadius: '4px',
-  color: '#F9FAFB',
-  padding: '4px 8px',
-  width: '100px',
-  marginTop: '2px',
-};
-
-const applyButtonStyle: React.CSSProperties = {
-  background: '#374151',
-  border: '1px solid #4B5563',
-  borderRadius: '4px',
-  color: '#F9FAFB',
-  padding: '4px 12px',
-  cursor: 'pointer',
-  alignSelf: 'flex-end',
-  marginBottom: '1px',
-};
-
-const activeButtonStyle: React.CSSProperties = {
-  background: '#1D4ED8',
-  border: '1px solid #2563EB',
-  borderRadius: '4px',
-  color: '#F9FAFB',
-  padding: '4px 12px',
-  cursor: 'pointer',
-  alignSelf: 'flex-end',
-  marginBottom: '1px',
-};
-
-const mutedButtonStyle: React.CSSProperties = {
-  background: '#1F2937',
-  border: '1px solid #374151',
-  borderRadius: '4px',
-  color: '#6B7280',
-  padding: '4px 12px',
-  cursor: 'default',
-  alignSelf: 'flex-end',
-  marginBottom: '1px',
-};
