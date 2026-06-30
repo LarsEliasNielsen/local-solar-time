@@ -5,7 +5,13 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '../', '')
   const backendPort = env.SOLAR_PORT ?? '8000'
   return {
-    plugins: [react()],
+    plugins: [
+      react({
+        babel: {
+          plugins: ['babel-plugin-react-compiler'],
+        },
+      }),
+    ],
     server: {
       proxy: {
         '/ws': {
