@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { THEME } from './theme';
 import type { Today } from './types';
 
 interface SolarClockProps {
@@ -8,6 +9,7 @@ interface SolarClockProps {
   locationChanged: boolean;
 }
 
+// Semicircle gauge geometry (half-circle).
 const CX = 200;
 const CY = 200;
 const R = 180;
@@ -17,27 +19,36 @@ function timeToSeconds(hms: string): number {
   return (h ?? 0) * 3600 + (m ?? 0) * 60 + (s ?? 0);
 }
 
+// Angle convention:
+// - 0s (midnight) -> pi (left horizon)
+// - 43200s (noon) -> pi/2 (top)
+// - 86400s (next midnight) -> 0 (right horizon)
+// Angle decreases as the day progresses.
 function solarAngle(secs: number): number {
   return (1 - secs / 86400) * Math.PI;
 }
 
+// Polar angle -> SVG canvas point on the arc. Y is flipped since SVG y grows downward.
 function arcPoint(theta: number): [number, number] {
   return [CX + R * Math.cos(theta), CY - R * Math.sin(theta)];
 }
 
-// Filled pie slice from center to arc segment
+// Filled pie slice from center to arc segment.
 function wedgePath(startTheta: number, endTheta: number): string {
   if (Math.abs(startTheta - endTheta) < 0.001) return '';
   const [x1, y1] = arcPoint(startTheta);
   const [x2, y2] = arcPoint(endTheta);
+  // SVG large-arc-flag: needed when the wedge spans more than half the circle.
   const large = startTheta - endTheta > Math.PI ? 1 : 0;
   return `M ${CX} ${CY} L ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2} Z`;
 }
 
+// Used for the initial sweep-in animation (fast start, slow finish).
 function easeOut(t: number): number {
   return 1 - (1 - t) * (1 - t);
 }
 
+// Used for the location-change tween (slow start, fast middle, slow finish).
 function easeInOut(t: number): number {
   return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 }
@@ -78,7 +89,8 @@ export default function SolarClock({ solarTime, today, altitudeDeg, locationChan
   const targetRef = useRef<VisualAngles>({ needle: null, sunrise: null, sunset: null });
   targetRef.current = target;
 
-  // Start animation: sweeps needle from midnight to current time, arc boundaries grow from edges
+  // Animation 1/3: Initial sweep-in.
+  // Needle sweeps from midnight to current time.
   useEffect(() => {
     if (hasAnimated.current || !hasFirstUpdate) return;
     hasAnimated.current = true;
@@ -110,15 +122,16 @@ export default function SolarClock({ solarTime, today, altitudeDeg, locationChan
     };
   }, [hasFirstUpdate]);
 
-  // When location changes, capture the current rendered angles as the tween start point.
-  // The new update hasn't arrived yet, so we can't start the tween here - just set a flag.
+  // Animation 2/3a: Location-change capture.
+  // When location changes, snapshot the current rendered angles as the tween start point.
   useEffect(() => {
     if (!hasAnimated.current) return;
     tweenFromRef.current = { ...visualRef.current };
     tweenPendingRef.current = true;
   }, [locationChanged]);
 
-  // When a new target arrives after a location change, play the tween from the captured state.
+  // Animation 2/3b: Location-change tween playback.
+  // When new target arrives after a location change, play the tween from the captured tween start point.
   useEffect(() => {
     if (!tweenPendingRef.current || target.needle === null) return;
     tweenPendingRef.current = false;
@@ -151,8 +164,9 @@ export default function SolarClock({ solarTime, today, altitudeDeg, locationChan
     };
   }, [target.needle, target.sunrise, target.sunset]);
 
-  // Real-time updates: sync visual to target on each tick; bail out if unchanged to avoid
-  // re-renders, and skip while an animation is running.
+  // Animation 3/3: Real-time sync.
+  // Snap visual straight to target on each server tick.
+  // Bail out if unchanged to avoid re-renders, and skip while an animation is running.
   useEffect(() => {
     if (!hasAnimated.current || animFrameRef.current !== null) return;
     const t = target;
@@ -166,10 +180,9 @@ export default function SolarClock({ solarTime, today, altitudeDeg, locationChan
   const showNeedle = needleEnd !== null && solarTime != null;
 
   const fullWedge = wedgePath(Math.PI, 0);
-  let baseColor = '#3D4A5C';
-  if (today === null) baseColor = '#6B7280';
+  const baseColor: string = today === null ? THEME.textDim : THEME.solarClock.night;
 
-  // Wedge paths only change when sunrise/sunset angles change - memoize to skip per-tick recomputation
+  // Wedge paths only change when sunrise/sunset angles change, memoize to skip per-tick recomputation.
   const arcPaths = useMemo(() => {
     if (visual.sunrise === null || visual.sunset === null) return null;
     return {
@@ -179,10 +192,10 @@ export default function SolarClock({ solarTime, today, altitudeDeg, locationChan
     };
   }, [visual.sunrise, visual.sunset]);
 
-  // Polar day/night: today exists but no sunrise or sunset
+  // Polar day/night: today exists but no sunrise or sunset.
   let polarBaseColor: string | null = null;
   if (today !== null && visual.sunrise === null && visual.sunset === null) {
-    polarBaseColor = altitudeDeg > 0 ? '#F97316' : '#3D4A5C';
+    polarBaseColor = altitudeDeg > 0 ? THEME.solarClock.day : THEME.solarClock.night;
   }
 
   return (
@@ -191,29 +204,29 @@ export default function SolarClock({ solarTime, today, altitudeDeg, locationChan
       style={{ width: '100%', maxWidth: '560px', display: 'block', margin: '0 auto' }}
       aria-label="Solar time clock"
     >
-      {/* Filled half-circle: full wedge as base, then day/night wedges on top */}
       {!arcPaths && <path d={fullWedge} fill={polarBaseColor ?? baseColor} />}
       {arcPaths && (
         <>
-          <path d={arcPaths.left}  fill="#3D4A5C" />
-          <path d={arcPaths.day}   fill="#F97316" />
-          <path d={arcPaths.right} fill="#3D4A5C" />
+          <path d={arcPaths.left}  fill={THEME.solarClock.night} />
+          <path d={arcPaths.day}   fill={THEME.solarClock.day} />
+          <path d={arcPaths.right} fill={THEME.solarClock.night} />
         </>
       )}
-
-      <circle cx={CX} cy={CY - R} r="4" fill="rgba(255,255,255,0.5)" />
 
       {showNeedle && (
         <>
           <line
             x1={CX} y1={CY} x2={needleEnd[0]} y2={needleEnd[1]}
-            stroke="white" strokeWidth="2" strokeLinecap="round"
+            stroke={THEME.solarClock.needle} strokeWidth={THEME.solarClock.needleStrokeWidth} strokeLinecap="round"
           />
-          <circle cx={needleEnd[0]} cy={needleEnd[1]} r="10" fill="#F97316" stroke="white" strokeWidth="2" />
+          <circle
+            cx={needleEnd[0]} cy={needleEnd[1]} r={THEME.solarClock.needleTipRadius}
+            fill={THEME.solarClock.day} stroke={THEME.solarClock.needle} strokeWidth={THEME.solarClock.needleStrokeWidth}
+          />
         </>
       )}
 
-      <circle cx={CX} cy={CY} r="5" fill="#9CA3AF" />
+      <circle cx={CX} cy={CY} r={THEME.solarClock.pivotRadius} fill={THEME.solarClock.pivot} />
     </svg>
   );
 }

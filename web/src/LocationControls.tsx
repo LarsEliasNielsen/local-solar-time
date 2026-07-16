@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from 'react';
+import { THEME } from './theme';
 import type { LocationSource } from './types';
 
 interface LocationControlsProps {
@@ -26,13 +27,13 @@ export default function LocationControls({
   return (
     <div style={{ marginTop: '12px' }}>
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <label style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>
+        <label style={{ fontSize: '0.8rem', color: THEME.textMuted }}>
           Lat
           <input type="number" min={-90} max={90} step={0.0001}
             value={latInput} onChange={e => onLatChange(e.target.value)} onKeyDown={handleKeyDown}
             style={inputStyle} />
         </label>
-        <label style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>
+        <label style={{ fontSize: '0.8rem', color: THEME.textMuted }}>
           Lon
           <input type="number" min={-180} max={180} step={0.0001}
             value={lonInput} onChange={e => onLonChange(e.target.value)} onKeyDown={handleKeyDown}
@@ -45,10 +46,10 @@ export default function LocationControls({
         </button>
       </div>
       {locationSource === 'default' && !inputError && (
-        <p style={{ fontSize: '0.75rem', color: '#6B7280', margin: '4px 0 0' }}>Default location (Copenhagen)</p>
+        <p style={{ fontSize: '0.75rem', color: THEME.textDim, margin: '4px 0 0' }}>Default location (Copenhagen)</p>
       )}
       {inputError && (
-        <p style={{ fontSize: '0.75rem', color: '#F87171', margin: '4px 0 0' }}>{inputError}</p>
+        <p style={{ fontSize: '0.75rem', color: THEME.textError, margin: '4px 0 0' }}>{inputError}</p>
       )}
     </div>
   );
@@ -56,10 +57,10 @@ export default function LocationControls({
 
 const inputStyle: React.CSSProperties = {
   display: 'block',
-  background: '#1F2937',
-  border: '1px solid #374151',
+  background: THEME.surface,
+  border: `1px solid ${THEME.border}`,
   borderRadius: '4px',
-  color: '#F9FAFB',
+  color: THEME.textPrimary,
   padding: '4px 8px',
   width: '100px',
   marginTop: '2px',
@@ -67,13 +68,13 @@ const inputStyle: React.CSSProperties = {
 
 const baseButtonStyle: React.CSSProperties = {
   borderRadius: '4px',
-  color: '#F9FAFB',
+  color: THEME.textPrimary,
   padding: '4px 12px',
   cursor: 'pointer',
   alignSelf: 'flex-end',
   marginBottom: '1px',
 };
 
-const applyButtonStyle:  React.CSSProperties = { ...baseButtonStyle, background: '#374151', border: '1px solid #4B5563' };
-const activeButtonStyle: React.CSSProperties = { ...baseButtonStyle, background: '#1D4ED8', border: '1px solid #2563EB' };
-const mutedButtonStyle:  React.CSSProperties = { ...baseButtonStyle, background: '#1F2937', border: '1px solid #374151', color: '#6B7280', cursor: 'default' };
+const applyButtonStyle:  React.CSSProperties = { ...baseButtonStyle, background: THEME.surfaceRaised, border: `1px solid ${THEME.borderStrong}` };
+const activeButtonStyle: React.CSSProperties = { ...baseButtonStyle, background: THEME.accent, border: `1px solid ${THEME.accentBorder}` };
+const mutedButtonStyle:  React.CSSProperties = { ...baseButtonStyle, background: THEME.surface, border: `1px solid ${THEME.border}`, color: THEME.textDim, cursor: 'default' };

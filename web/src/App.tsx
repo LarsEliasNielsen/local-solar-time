@@ -5,6 +5,7 @@ import SolarInfo from './SolarInfo';
 import LocationControls from './LocationControls';
 import { getLocation } from './geo';
 import { openSocket } from './ws';
+import { THEME } from './theme';
 import type { SolarUpdate, LocationSource } from './types';
 
 const DEFAULT_LAT = 55.6761;
@@ -146,12 +147,12 @@ export default function App() {
   const isGpsActive = appState.locationSource === 'gps';
 
   return (
-    <div style={{ maxWidth: '640px', margin: '0 auto', padding: '16px', fontFamily: 'system-ui, sans-serif', color: '#F9FAFB' }}>
+    <div style={{ maxWidth: '640px', margin: '0 auto', padding: '16px', fontFamily: 'system-ui, sans-serif', color: THEME.textPrimary }}>
       <ClockDisplay solarTime={solarTime} />
       <SolarClock solarTime={solarTime} today={today} altitudeDeg={altitudeDeg} locationChanged={locationChanged} />
       <SolarInfo today={today} solarNoon={solarNoon} altitudeDeg={altitudeDeg} polarCap={polarCap} />
       {appState.phase === 'reconnecting' && (
-        <p role="status" style={{ fontSize: '0.8rem', color: '#FBBF24', margin: '4px 0' }}>
+        <p role="status" style={{ fontSize: '0.8rem', color: THEME.textWarning, margin: '4px 0' }}>
           Reconnecting in {appState.delay}s&hellip;
         </p>
       )}
