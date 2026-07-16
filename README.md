@@ -79,39 +79,41 @@ The process logs structured JSON to stdout (via `zerolog`) and shuts down gracef
 
 ## Development
 
-**Backend:**
+Docker runs the full stack (backend + nginx-served frontend). Use the local (non-Docker) workflows below when you need faster iteration on one side only, e.g. Vite's hot reload for frontend changes.
+
+### Docker
+
+```sh
+make docker-build   # build both images
+make docker-up      # start both services (add -d to detach)
+make docker-down    # stop and remove containers
+```
+
+Open `http://localhost` for the web UI. Code changes require `make docker-build && make docker-up` to take effect.
+
+### Backend
 
 ```sh
 make build   # compile the local binary to ./local-solar-time
+make test    # Go package tests
+make lint    # Go linting (golangci-lint)
+make fmt     # format with goimports
 ```
 
-**Frontend** (run from `web/`):
+Run it directly with `./local-solar-time` (reads `.env` in the repo root, see [Configuration](#configuration)).
+
+### Frontend
+
+Run from `web/`:
 
 ```sh
 npm install      # install dependencies (first time, or after package.json changes)
-npm run build    # TypeScript type-check + Vite production build
-npm run dev      # Vite dev server on http://localhost:5173 - proxies /ws to the backend
+npm run dev       # Vite dev server on http://localhost:5173 - proxies /ws to the backend
+npm run build     # TypeScript type-check + Vite production build
+npm run lint      # ESLint - includes react-compiler/react-compiler rule
 ```
 
-The dev server reads `SOLAR_PORT` from `.env` in the repo root to know where to proxy WebSocket connections. Start the backend separately with `make build && ./local-solar-time` (or `make docker-up` for the full stack).
-
-## Tests and lint
-
-**Backend:**
-
-```sh
-make test   # Go package tests
-make lint   # Go linting (golangci-lint)
-make fmt    # format with goimports
-```
-
-**Frontend** (run from `web/`):
-
-```sh
-npm run lint    # ESLint - includes react-compiler/react-compiler rule
-```
-
-No automated frontend tests exist; correctness is verified by `npm run build` (TypeScript) and the manual smoke test checklist in the project documentation.
+The dev server reads `SOLAR_PORT` from `.env` in the repo root to know where to proxy WebSocket connections, so start the backend separately first (`make build && ./local-solar-time`, or point it at the Docker backend). No automated frontend tests exist; correctness is verified by `npm run build` (TypeScript) and the manual smoke test checklist in the project documentation.
 
 ## License
 
