@@ -25,8 +25,8 @@ export default function LocationControls({
   }
 
   return (
-    <div style={{ marginTop: '12px' }}>
-      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+    <div style={{ maxWidth: '560px', margin: '12px auto 0' }}>
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', padding: '0 5%' }}>
         <label style={{ fontSize: '0.8rem', color: THEME.textMuted }}>
           Lat
           <input type="number" min={-90} max={90} step={0.0001}
@@ -46,10 +46,10 @@ export default function LocationControls({
         </button>
       </div>
       {locationSource === 'default' && !inputError && (
-        <p style={{ fontSize: '0.75rem', color: THEME.textDim, margin: '4px 0 0' }}>Default location (Copenhagen)</p>
+        <p style={{ fontSize: '0.75rem', color: THEME.textDim, margin: '4px 0 0', padding: '0 5%' }}>Default location (Copenhagen)</p>
       )}
       {inputError && (
-        <p style={{ fontSize: '0.75rem', color: THEME.textError, margin: '4px 0 0' }}>{inputError}</p>
+        <p style={{ fontSize: '0.75rem', color: THEME.textError, margin: '4px 0 0', padding: '0 5%' }}>{inputError}</p>
       )}
     </div>
   );

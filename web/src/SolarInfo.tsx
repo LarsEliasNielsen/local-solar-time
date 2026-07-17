@@ -16,14 +16,14 @@ function formatNoonUtc(utc: string | null): string {
 
 export default function SolarInfo({ today, solarNoon, altitudeDeg, polarCap }: SolarInfoProps) {
   return (
-    <>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', margin: '12px 0', fontSize: '0.875rem' }}>
+    <div style={{ maxWidth: '560px', margin: '0 auto' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', margin: '12px 0', padding: '0 5%', fontSize: '0.875rem' }}>
         <div><span style={{ color: THEME.textMuted }}>Sunrise (ST)</span><br />{today?.sunrise?.solar_time ?? (today === null ? '--' : 'No sunrise today')}</div>
-        <div><span style={{ color: THEME.textMuted }}>Sunset (ST)</span><br />{today?.sunset?.solar_time ?? (today === null ? '--' : 'No sunset today')}</div>
+        <div style={{ textAlign: 'right' }}><span style={{ color: THEME.textMuted }}>Sunset (ST)</span><br />{today?.sunset?.solar_time ?? (today === null ? '--' : 'No sunset today')}</div>
         <div><span style={{ color: THEME.textMuted }}>Solar noon</span><br />{formatNoonUtc(solarNoon?.utc ?? null)}</div>
-        <div><span style={{ color: THEME.textMuted }}>Altitude</span><br />{`${altitudeDeg.toFixed(1)}°`}</div>
+        <div style={{ textAlign: 'right' }}><span style={{ color: THEME.textMuted }}>Altitude</span><br />{`${altitudeDeg.toFixed(1)}°`}</div>
       </div>
-      {polarCap && <p style={{ fontSize: '0.75rem', color: THEME.textMuted, margin: '4px 0 8px' }}>{polarCap.reason}</p>}
-    </>
+      {polarCap && <p style={{ fontSize: '0.75rem', color: THEME.textMuted, margin: '4px 0 8px', padding: '0 5%' }}>{polarCap.reason}</p>}
+    </div>
   );
 }
