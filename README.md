@@ -1,5 +1,9 @@
 # local-solar-time
 
+<p align="center">
+  <img src="docs/images/solar-clock-screenshot.png" alt="Local Solar Time frontend showing the solar clock" width="600">
+</p>
+
 A Go service that streams apparent (true) solar time, Sun position, and rise/set events over WebSocket for any latitude/longitude, computed continuously from the server's own NTP-disciplined clock. Ships with a Vite + React + TypeScript web frontend served by nginx that visualizes solar time on an SVG half-circle clock, with browser geolocation, manual coordinate input, and automatic reconnection.
 
 ## Prerequisites
