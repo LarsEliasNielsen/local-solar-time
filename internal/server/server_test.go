@@ -2,7 +2,9 @@ package server
 
 import (
 	"bytes"
+	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -338,4 +340,136 @@ func TestServeNoGoroutineLeakOnDisconnect(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Errorf("goroutine leak: before=%d after=%d", before, runtime.NumGoroutine())
+}
+
+func TestServeMaxSession(t *testing.T) {
+	tests := []struct {
+		name       string
+		maxSession time.Duration
+		wantClose  bool
+	}{
+		{name: "closes after max session", maxSession: 50 * time.Millisecond, wantClose: true},
+		{name: "zero disables the limit", maxSession: 0, wantClose: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixed := clock.FixedClock{Time: time.Date(2026, 6, 21, 12, 0, 0, 0, time.UTC)}
+			s := New(fixed, 10*time.Millisecond)
+			s.MaxSession = tt.maxSession
+			ts := httptest.NewServer(s.Handler())
+			defer ts.Close()
+
+			conn, _, err := websocket.DefaultDialer.Dial(wsURL(ts), nil)
+			if err != nil {
+				t.Fatalf("dial: %v", err)
+			}
+			defer func() { _ = conn.Close() }()
+
+			if err := conn.WriteJSON(SubscribeRequest{Lat: 10, Lon: 10}); err != nil {
+				t.Fatalf("write subscribe: %v", err)
+			}
+
+			if err := conn.SetReadDeadline(time.Now().Add(200 * time.Millisecond)); err != nil {
+				t.Fatalf("set read deadline: %v", err)
+			}
+			for {
+				_, _, err := conn.ReadMessage()
+				if err == nil {
+					continue
+				}
+				var closeErr *websocket.CloseError
+				if errors.As(err, &closeErr) {
+					if !tt.wantClose {
+						t.Fatalf("unexpected close frame: %v", closeErr)
+					}
+					if closeErr.Code != websocket.CloseNormalClosure {
+						t.Errorf("close code = %d, want %d", closeErr.Code, websocket.CloseNormalClosure)
+					}
+					return
+				}
+				var netErr net.Error
+				if errors.As(err, &netErr) && netErr.Timeout() {
+					if tt.wantClose {
+						t.Fatal("still streaming after 200ms, want a close frame")
+					}
+					return
+				}
+				t.Fatalf("read: %v", err)
+			}
+		})
+	}
+}
+
+func TestServeClosesConnectionWithoutSubscribe(t *testing.T) {
+	fixed := clock.FixedClock{Time: time.Date(2026, 6, 21, 12, 0, 0, 0, time.UTC)}
+	s := New(fixed, 10*time.Millisecond)
+	s.SubscribeTimeout = 50 * time.Millisecond
+	ts := httptest.NewServer(s.Handler())
+	defer ts.Close()
+
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL(ts), nil)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatalf("set read deadline: %v", err)
+	}
+	_, _, err = conn.ReadMessage()
+	var netErr net.Error
+	if err == nil || (errors.As(err, &netErr) && netErr.Timeout()) {
+		t.Fatalf("expected the server to close the connection, got %v", err)
+	}
+}
+
+func TestServeClosesConnectionOnOversizedMessage(t *testing.T) {
+	fixed := clock.FixedClock{Time: time.Date(2026, 6, 21, 12, 0, 0, 0, time.UTC)}
+	s := New(fixed, 10*time.Millisecond)
+	ts := httptest.NewServer(s.Handler())
+	defer ts.Close()
+
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL(ts), nil)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	if err := conn.WriteMessage(websocket.TextMessage, bytes.Repeat([]byte("a"), 1024)); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatalf("set read deadline: %v", err)
+	}
+	_, _, err = conn.ReadMessage()
+	var closeErr *websocket.CloseError
+	if !errors.As(err, &closeErr) {
+		t.Fatalf("expected a close frame, got %v (%T)", err, err)
+	}
+	if closeErr.Code != websocket.CloseMessageTooBig {
+		t.Errorf("close code = %d, want %d", closeErr.Code, websocket.CloseMessageTooBig)
+	}
+}
+
+func TestUpgradeRejectsCrossOrigin(t *testing.T) {
+	fixed := clock.FixedClock{Time: time.Date(2026, 6, 21, 12, 0, 0, 0, time.UTC)}
+	s := New(fixed, 10*time.Millisecond)
+	ts := httptest.NewServer(s.Handler())
+	defer ts.Close()
+
+	header := http.Header{"Origin": []string{"http://evil.example"}}
+	conn, resp, err := websocket.DefaultDialer.Dial(wsURL(ts), header)
+	if err == nil {
+		_ = conn.Close()
+		t.Fatal("dial succeeded, want the upgrade rejected")
+	}
+	if resp == nil {
+		t.Fatalf("no HTTP response: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusForbidden)
+	}
 }

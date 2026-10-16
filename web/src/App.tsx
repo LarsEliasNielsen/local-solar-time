@@ -13,6 +13,7 @@ const DEFAULT_LON = 12.5683;
 
 const RECONNECT_INITIAL_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
+const HIDDEN_CLOSE_MS = 5 * 60 * 1000;
 
 interface Coords {
   lat: number;
@@ -44,6 +45,10 @@ export default function App() {
   // Session counter: each connect() call gets a unique ID. Stale onClose/onMessage callbacks
   // from a socket that was intentionally closed check this and bail out.
   const sessionRef = useRef(0);
+  // Latest connect() arguments, used to resume after a hidden-tab pause.
+  const currentRef = useRef<{ coords: Coords; source: LocationSource } | null>(null);
+  const hiddenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pausedRef = useRef(false);
 
   const connect = useCallback((coords: Coords, source: LocationSource) => {
     // Cancel any pending reconnect and close the current socket before opening a new one.
@@ -52,6 +57,7 @@ export default function App() {
 
     const session = ++sessionRef.current;
     reconnectDelayRef.current = RECONNECT_INITIAL_MS;
+    currentRef.current = { coords, source };
 
     setAppState(prev => {
       if (prev.phase === 'connected') setLocationChanged(v => !v);
@@ -85,8 +91,8 @@ export default function App() {
           if (session !== sessionRef.current) return;
           if (source === 'gps') {
             getLocation().then(
-              gc => connect({ lat: gc.latitude, lon: gc.longitude }, 'gps'),
-              () => connect({ lat: DEFAULT_LAT, lon: DEFAULT_LON }, 'default'),
+              gc => { if (session === sessionRef.current) connect({ lat: gc.latitude, lon: gc.longitude }, 'gps'); },
+              () => { if (session === sessionRef.current) connect({ lat: DEFAULT_LAT, lon: DEFAULT_LON }, 'default'); },
             );
           } else {
             connect(coords, source);
@@ -95,7 +101,7 @@ export default function App() {
       },
     );
     cleanupRef.current = cleanup;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // Initial connect + background geolocation
   useEffect(() => {
@@ -110,7 +116,35 @@ export default function App() {
       if (cleanupRef.current) cleanupRef.current();
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [connect]);
+
+  // Close the socket after the tab has been hidden for HIDDEN_CLOSE_MS; reconnect when it is visible again.
+  useEffect(() => {
+    function handleVisibility() {
+      if (document.hidden) {
+        hiddenTimerRef.current = setTimeout(() => {
+          // Bump the session so the closing socket's onClose does not start a reconnect backoff.
+          sessionRef.current++;
+          if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+          if (cleanupRef.current) cleanupRef.current();
+          pausedRef.current = true;
+        }, HIDDEN_CLOSE_MS);
+        return;
+      }
+      if (hiddenTimerRef.current) clearTimeout(hiddenTimerRef.current);
+      hiddenTimerRef.current = null;
+      if (pausedRef.current && currentRef.current) {
+        pausedRef.current = false;
+        connect(currentRef.current.coords, currentRef.current.source);
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      if (hiddenTimerRef.current) clearTimeout(hiddenTimerRef.current);
+    };
+  }, [connect]);
 
   function handleManualSubmit() {
     const lat = parseFloat(latInput);

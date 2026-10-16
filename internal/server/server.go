@@ -21,23 +21,35 @@ type SubscribeRequest struct {
 	Lon float64 `json:"lon"`
 }
 
+const (
+	defaultSubscribeTimeout = 10 * time.Second
+	maxMessageBytes         = 512
+)
+
 type Server struct {
-	Clock     clock.Clock
-	Cadence   time.Duration
-	Logger    zerolog.Logger
-	StaticDir string
+	Clock            clock.Clock
+	Cadence          time.Duration
+	Logger           zerolog.Logger
+	StaticDir        string
+	MaxSession       time.Duration // 0 disables the limit
+	SubscribeTimeout time.Duration
 
 	done      chan struct{}
 	closeOnce sync.Once
 	wg        sync.WaitGroup
 }
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
-}
+// upgrader keeps gorilla's default same-origin check.
+var upgrader = websocket.Upgrader{}
 
 func New(c clock.Clock, cadence time.Duration) *Server {
-	return &Server{Clock: c, Cadence: cadence, Logger: zerolog.Nop(), done: make(chan struct{})}
+	return &Server{
+		Clock:            c,
+		Cadence:          cadence,
+		Logger:           zerolog.Nop(),
+		SubscribeTimeout: defaultSubscribeTimeout,
+		done:             make(chan struct{}),
+	}
 }
 
 // Handler routes /ws to the WebSocket endpoint, /healthz to a 200 health check and, when StaticDir is set, everything else to the frontend files.
@@ -92,9 +104,23 @@ func (s *Server) Shutdown() {
 
 // serve reads subscribe messages until one passes validation - replying with
 // an ErrorResponse and retrying on failure - then pushes a freshly computed
-// solar payload on every tick until the connection closes.
+// solar payload on every tick until the connection closes or MaxSession,
+// counted from connection open, elapses.
 func (s *Server) serve(conn *websocket.Conn) {
 	defer func() { _ = conn.Close() }()
+
+	conn.SetReadLimit(maxMessageBytes)
+
+	var sessionEnd <-chan time.Time
+	if s.MaxSession > 0 {
+		sessionTimer := time.NewTimer(s.MaxSession)
+		defer sessionTimer.Stop()
+		sessionEnd = sessionTimer.C
+	}
+
+	// Closing the connection unblocks the pending read in the subscribe loop.
+	subscribeTimer := time.AfterFunc(s.SubscribeTimeout, func() { _ = conn.Close() })
+	defer subscribeTimer.Stop()
 
 	var req SubscribeRequest
 	for {
@@ -103,6 +129,7 @@ func (s *Server) serve(conn *websocket.Conn) {
 		}
 		err := validate(req)
 		if err == nil {
+			subscribeTimer.Stop()
 			break
 		}
 		if writeErr := conn.WriteJSON(ErrorResponse{Error: err.Error()}); writeErr != nil {
@@ -135,6 +162,10 @@ func (s *Server) serve(conn *websocket.Conn) {
 			return
 		case <-s.done:
 			closeMsg := websocket.FormatCloseMessage(websocket.CloseGoingAway, "server shutting down")
+			_ = conn.WriteMessage(websocket.CloseMessage, closeMsg)
+			return
+		case <-sessionEnd:
+			closeMsg := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "max session reached")
 			_ = conn.WriteMessage(websocket.CloseMessage, closeMsg)
 			return
 		case <-ticker.C:

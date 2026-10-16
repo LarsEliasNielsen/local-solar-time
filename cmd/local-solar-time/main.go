@@ -36,6 +36,7 @@ func main() {
 	srv := server.New(clock.WallClock{}, cfg.Cadence)
 	srv.Logger = logger
 	srv.StaticDir = cfg.StaticDir
+	srv.MaxSession = cfg.MaxSession
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	httpServer := &http.Server{

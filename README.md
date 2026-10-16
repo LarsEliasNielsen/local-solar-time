@@ -31,6 +31,7 @@ A Vite + React + TypeScript single-page app. In the Docker image the Go binary s
 - Requests browser geolocation in the background; on grant, transitions to the real location with a ~0.4s tween.
 - Manual lat/lon inputs with inline validation let you override the location at any time.
 - Reconnects automatically with exponential backoff (1s initial, 30s cap) on connection loss.
+- Closes its socket after the tab has been hidden for 5 minutes and reconnects when the tab is visible again.
 
 ## Backend
 
@@ -70,12 +71,15 @@ Above latitude ~89.4°, `solar_time`, `azimuth_deg`, `solar_noon`, `today`, and 
 
 Invalid coordinates (e.g. `lat` outside ±90) get `{ "error": "..." }` instead of an update, and the connection stays open for another subscribe attempt.
 
+The server closes a connection that sends no valid subscribe within 10 seconds, sends a message over 512 bytes, or reaches `SOLAR_MAX_SESSION`. Upgrades from another origin are rejected with `403`.
+
 ### Configuration
 
 | Variable | Flag | Default | Description |
 |---|---|---|---|
 | `SOLAR_PORT` | `--port` | `8080` | HTTP listen port for `/ws` and the frontend |
 | `SOLAR_CADENCE` | `--cadence` | `1s` | Update push interval (e.g. `1s`, `500ms`) |
+| `SOLAR_MAX_SESSION` | `--max-session` | `2h` | Maximum WebSocket session length, counted from connection open. `0` disables |
 | `SOLAR_STATIC_DIR` | `--static-dir` | empty | Directory of built frontend files to serve. Empty serves only `/ws`. The Docker image sets it to `/static` |
 
 Precedence is flag > environment variable > default. Copy `.env.example` to `.env` to override locally.
