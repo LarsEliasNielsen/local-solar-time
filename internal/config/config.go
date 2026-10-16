@@ -16,13 +16,14 @@ const (
 )
 
 type Config struct {
-	Port    int
-	Cadence time.Duration
+	Port      int
+	Cadence   time.Duration
+	StaticDir string
 }
 
 // Load resolves Config from, in order of precedence, command-line flags,
-// then SOLAR_PORT/SOLAR_CADENCE environment variables (auto-loaded from a
-// local .env file if present), then defaults.
+// then SOLAR_* environment variables (auto-loaded from a local .env file
+// if present), then defaults.
 func Load() (Config, error) {
 	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
 		return Config{}, fmt.Errorf("load .env: %w", err)
@@ -30,10 +31,12 @@ func Load() (Config, error) {
 
 	portStr := envOrDefault("SOLAR_PORT", strconv.Itoa(defaultPort))
 	cadenceStr := envOrDefault("SOLAR_CADENCE", defaultCadence.String())
+	staticDirStr := os.Getenv("SOLAR_STATIC_DIR")
 
 	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	portFlag := fs.String("port", portStr, "WebSocket listen port")
 	cadenceFlag := fs.String("cadence", cadenceStr, "update tick cadence (e.g. 1s, 500ms)")
+	staticDirFlag := fs.String("static-dir", staticDirStr, "directory of frontend files to serve; empty serves only /ws")
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		return Config{}, fmt.Errorf("parse flags: %w", err)
 	}
@@ -48,7 +51,7 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("parse cadence %q: %w", *cadenceFlag, err)
 	}
 
-	return Config{Port: port, Cadence: cadence}, nil
+	return Config{Port: port, Cadence: cadence, StaticDir: *staticDirFlag}, nil
 }
 
 func envOrDefault(key, def string) string {

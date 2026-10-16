@@ -18,6 +18,9 @@ linters:
           disabled: true
         - name: unused-parameter
           disabled: true
+  exclusions:
+    paths:
+      - web/
 
 formatters:
   enable:

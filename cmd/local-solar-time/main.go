@@ -35,6 +35,7 @@ func main() {
 
 	srv := server.New(clock.WallClock{}, cfg.Cadence)
 	srv.Logger = logger
+	srv.StaticDir = cfg.StaticDir
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	httpServer := &http.Server{

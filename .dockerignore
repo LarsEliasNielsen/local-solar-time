@@ -9,3 +9,5 @@
 .claude/
 CLAUDE.md
 LICENSE
+web/node_modules
+web/dist

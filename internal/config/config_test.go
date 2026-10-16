@@ -15,11 +15,12 @@ func withArgs(t *testing.T, args ...string) {
 
 func TestLoadPrecedence(t *testing.T) {
 	tests := []struct {
-		name        string
-		args        []string
-		env         map[string]string
-		wantPort    int
-		wantCadence time.Duration
+		name          string
+		args          []string
+		env           map[string]string
+		wantPort      int
+		wantCadence   time.Duration
+		wantStaticDir string
 	}{
 		{
 			name:        "defaults",
@@ -27,17 +28,19 @@ func TestLoadPrecedence(t *testing.T) {
 			wantCadence: time.Second,
 		},
 		{
-			name:        "env overrides default",
-			env:         map[string]string{"SOLAR_PORT": "9001", "SOLAR_CADENCE": "500ms"},
-			wantPort:    9001,
-			wantCadence: 500 * time.Millisecond,
+			name:          "env overrides default",
+			env:           map[string]string{"SOLAR_PORT": "9001", "SOLAR_CADENCE": "500ms", "SOLAR_STATIC_DIR": "/env"},
+			wantPort:      9001,
+			wantCadence:   500 * time.Millisecond,
+			wantStaticDir: "/env",
 		},
 		{
-			name:        "flag overrides env and default",
-			args:        []string{"-port=7000", "-cadence=2s"},
-			env:         map[string]string{"SOLAR_PORT": "9001", "SOLAR_CADENCE": "500ms"},
-			wantPort:    7000,
-			wantCadence: 2 * time.Second,
+			name:          "flag overrides env and default",
+			args:          []string{"-port=7000", "-cadence=2s", "-static-dir=/flag"},
+			env:           map[string]string{"SOLAR_PORT": "9001", "SOLAR_CADENCE": "500ms", "SOLAR_STATIC_DIR": "/env"},
+			wantPort:      7000,
+			wantCadence:   2 * time.Second,
+			wantStaticDir: "/flag",
 		},
 	}
 
@@ -57,6 +60,9 @@ func TestLoadPrecedence(t *testing.T) {
 			}
 			if cfg.Cadence != tt.wantCadence {
 				t.Errorf("Cadence = %v, want %v", cfg.Cadence, tt.wantCadence)
+			}
+			if cfg.StaticDir != tt.wantStaticDir {
+				t.Errorf("StaticDir = %q, want %q", cfg.StaticDir, tt.wantStaticDir)
 			}
 		})
 	}

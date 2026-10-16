@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '../', '')
-  const backendPort = env.SOLAR_PORT ?? '8000'
+  const backendPort = env.SOLAR_PORT ?? '8080'
   return {
     plugins: [
       react({

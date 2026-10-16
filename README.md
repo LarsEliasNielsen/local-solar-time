@@ -4,13 +4,13 @@
   <img src="docs/images/solar-clock-screenshot.png" alt="Local Solar Time frontend showing the solar clock" width="600">
 </p>
 
-A Go service that streams apparent (true) solar time, Sun position, and rise/set events over WebSocket for any latitude/longitude, computed continuously from the server's own NTP-disciplined clock. Ships with a Vite + React + TypeScript web frontend served by nginx that visualizes solar time on an SVG half-circle clock, with browser geolocation, manual coordinate input, and automatic reconnection.
+A Go service that streams apparent (true) solar time, Sun position, and rise/set events over WebSocket for any latitude/longitude, computed continuously from the server's own NTP-disciplined clock. Ships with a Vite + React + TypeScript web frontend, served by the same Go binary, that visualizes solar time on an SVG half-circle clock, with browser geolocation, manual coordinate input, and automatic reconnection.
 
 ## Prerequisites
 
 - Docker with the Compose plugin
 - An NTP-synchronized host clock - solar time accuracy depends entirely on it
-- Go 1.23+ - only needed for local backend builds outside Docker
+- Go 1.27+ - only needed for local backend builds outside Docker
 - Node.js 20+ and npm - only needed for local frontend builds outside Docker
 
 ## Quick start
@@ -18,14 +18,14 @@ A Go service that streams apparent (true) solar time, Sun position, and rise/set
 ```sh
 git clone <repo-url>
 cd local-solar-time
-make docker-up   # builds images and starts both services
+make docker-up   # builds the image and starts the service
 ```
 
-Open `http://localhost` for the web UI, or connect a headless client directly to the WebSocket endpoint (see [Backend](#backend)).
+Open `http://localhost:8080` for the web UI, or connect a headless client directly to the WebSocket endpoint (see [Backend](#backend)).
 
 ## Frontend
 
-A Vite + React + TypeScript single-page app served by nginx on port 80.
+A Vite + React + TypeScript single-page app. In the Docker image the Go binary serves the built files from `SOLAR_STATIC_DIR` alongside `/ws`, falling back to `index.html` for unknown paths.
 
 - Connects immediately with the default location (Copenhagen, `lat: 55.6761, lon: 12.5683`) so the clock is visible before any geolocation prompt.
 - Requests browser geolocation in the background; on grant, transitions to the real location with a ~0.4s tween.
@@ -36,7 +36,7 @@ A Vite + React + TypeScript single-page app served by nginx on port 80.
 
 ### WebSocket API
 
-Connect, then send a subscribe message once with your location:
+Connect to `ws://<host>:<port>/ws`, then send a subscribe message once with your location:
 
 ```json
 { "lat": 55.6761, "lon": 12.5683 }
@@ -74,8 +74,9 @@ Invalid coordinates (e.g. `lat` outside ±90) get `{ "error": "..." }` instead o
 
 | Variable | Flag | Default | Description |
 |---|---|---|---|
-| `SOLAR_PORT` | `--port` | `8080` | Backend WebSocket listen port (internal to the Compose network; the nginx frontend is always on port 80) |
+| `SOLAR_PORT` | `--port` | `8080` | HTTP listen port for `/ws` and the frontend |
 | `SOLAR_CADENCE` | `--cadence` | `1s` | Update push interval (e.g. `1s`, `500ms`) |
+| `SOLAR_STATIC_DIR` | `--static-dir` | empty | Directory of built frontend files to serve. Empty serves only `/ws`. The Docker image sets it to `/static` |
 
 Precedence is flag > environment variable > default. Copy `.env.example` to `.env` to override locally.
 
@@ -83,17 +84,17 @@ The process logs structured JSON to stdout (via `zerolog`) and shuts down gracef
 
 ## Development
 
-Docker runs the full stack (backend + nginx-served frontend). Use the local (non-Docker) workflows below when you need faster iteration on one side only, e.g. Vite's hot reload for frontend changes.
+Docker runs the production image: one container serving both `/ws` and the frontend. For day-to-day work, run the backend binary and the Vite dev server locally instead (see below).
 
 ### Docker
 
 ```sh
-make docker-build   # build both images
-make docker-up      # start both services (add -d to detach)
+make docker-build   # build the image
+make docker-up      # start the service (add -d to detach)
 make docker-down    # stop and remove containers
 ```
 
-Open `http://localhost` for the web UI. Code changes require `make docker-build && make docker-up` to take effect.
+Open `http://localhost:8080` (or your `SOLAR_PORT`) for the web UI. Code changes require `make docker-build && make docker-up` to take effect.
 
 ### Backend
 
@@ -104,7 +105,7 @@ make lint    # Go linting (golangci-lint)
 make fmt     # format with goimports
 ```
 
-Run it directly with `./local-solar-time` (reads `.env` in the repo root, see [Configuration](#configuration)).
+Run it directly with `./local-solar-time` (reads `.env` in the repo root, see [Configuration](#configuration)). Without `SOLAR_STATIC_DIR` it serves only `/ws`, leaving the frontend to Vite.
 
 ### Frontend
 
@@ -117,7 +118,7 @@ npm run build     # TypeScript type-check + Vite production build
 npm run lint      # ESLint - includes react-compiler/react-compiler rule
 ```
 
-The dev server reads `SOLAR_PORT` from `.env` in the repo root to know where to proxy WebSocket connections, so start the backend separately first (`make build && ./local-solar-time`, or point it at the Docker backend). No automated frontend tests exist; correctness is verified by `npm run build` (TypeScript) and the manual smoke test checklist in the project documentation.
+The dev server proxies `/ws` to `localhost:8080`, or to `SOLAR_PORT` from `.env` in the repo root if set. No `.env` is needed. Start the backend first with `make build && ./local-solar-time`. No automated frontend tests exist; correctness is verified by `npm run build` (TypeScript) and the manual smoke test checklist in the project documentation.
 
 ## License
 

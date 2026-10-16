@@ -2,7 +2,11 @@ package server
 
 import (
 	"bytes"
+	"io"
+	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"strconv"
@@ -18,7 +22,74 @@ import (
 )
 
 func wsURL(ts *httptest.Server) string {
-	return "ws" + strings.TrimPrefix(ts.URL, "http")
+	return "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws"
+}
+
+func TestHandlerRouting(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "assets"), 0o750); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte("index"), 0o600); err != nil {
+		t.Fatalf("write index.html: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "assets", "app.js"), []byte("app"), 0o600); err != nil {
+		t.Fatalf("write app.js: %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		staticDir  string
+		path       string
+		websocket  bool
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "existing file served", staticDir: dir, path: "/assets/app.js", wantStatus: http.StatusOK, wantBody: "app"},
+		{name: "root serves index", staticDir: dir, path: "/", wantStatus: http.StatusOK, wantBody: "index"},
+		{name: "unknown path falls back to index", staticDir: dir, path: "/no/such/page", wantStatus: http.StatusOK, wantBody: "index"},
+		{name: "ws upgrades with static dir", staticDir: dir, path: "/ws", websocket: true},
+		{name: "ws upgrades without static dir", path: "/ws", websocket: true},
+		{name: "no static dir gives 404 on root", path: "/", wantStatus: http.StatusNotFound},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := New(clock.FixedClock{Time: time.Date(2026, 6, 21, 12, 0, 0, 0, time.UTC)}, 10*time.Millisecond)
+			s.StaticDir = tt.staticDir
+			ts := httptest.NewServer(s.Handler())
+			defer ts.Close()
+
+			if tt.websocket {
+				conn, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(ts.URL, "http")+tt.path, nil)
+				if err != nil {
+					t.Fatalf("dial: %v", err)
+				}
+				_ = conn.Close()
+				return
+			}
+
+			resp, err := http.Get(ts.URL + tt.path)
+			if err != nil {
+				t.Fatalf("get: %v", err)
+			}
+			defer func() { _ = resp.Body.Close() }()
+
+			if resp.StatusCode != tt.wantStatus {
+				t.Errorf("status = %d, want %d", resp.StatusCode, tt.wantStatus)
+			}
+			if tt.wantBody == "" {
+				return
+			}
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatalf("read body: %v", err)
+			}
+			if string(body) != tt.wantBody {
+				t.Errorf("body = %q, want %q", body, tt.wantBody)
+			}
+		})
+	}
 }
 
 func TestServeIndependentClients(t *testing.T) {

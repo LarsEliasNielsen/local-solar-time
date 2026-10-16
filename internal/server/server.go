@@ -1,7 +1,11 @@
 package server
 
 import (
+	"io/fs"
 	"net/http"
+	"os"
+	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,9 +22,10 @@ type SubscribeRequest struct {
 }
 
 type Server struct {
-	Clock   clock.Clock
-	Cadence time.Duration
-	Logger  zerolog.Logger
+	Clock     clock.Clock
+	Cadence   time.Duration
+	Logger    zerolog.Logger
+	StaticDir string
 
 	done      chan struct{}
 	closeOnce sync.Once
@@ -35,18 +40,44 @@ func New(c clock.Clock, cadence time.Duration) *Server {
 	return &Server{Clock: c, Cadence: cadence, Logger: zerolog.Nop(), done: make(chan struct{})}
 }
 
-// Handler upgrades each request to a WebSocket connection and serves it on its own goroutine.
+// Handler routes /ws to the WebSocket endpoint and, when StaticDir is set, everything else to the frontend files.
 func (s *Server) Handler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/ws", s.handleWS)
+	if s.StaticDir != "" {
+		mux.Handle("/", staticHandler(s.StaticDir))
+	}
+	return mux
+}
+
+// handleWS upgrades the request to a WebSocket connection and serves it on its own goroutine.
+func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		s.serve(conn)
+	}()
+}
+
+// staticHandler serves files from dir, falling back to index.html for paths that do not exist.
+func staticHandler(dir string) http.Handler {
+	fsys := os.DirFS(dir)
+	files := http.FileServerFS(fsys)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			return
+		name := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
+		if name == "" {
+			name = "."
 		}
-		s.wg.Add(1)
-		go func() {
-			defer s.wg.Done()
-			s.serve(conn)
-		}()
+		if _, err := fs.Stat(fsys, name); err != nil {
+			r = r.Clone(r.Context())
+			r.URL.Path = "/"
+			r.URL.RawPath = ""
+		}
+		files.ServeHTTP(w, r)
 	})
 }
 
