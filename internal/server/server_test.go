@@ -51,6 +51,8 @@ func TestHandlerRouting(t *testing.T) {
 		{name: "ws upgrades with static dir", staticDir: dir, path: "/ws", websocket: true},
 		{name: "ws upgrades without static dir", path: "/ws", websocket: true},
 		{name: "no static dir gives 404 on root", path: "/", wantStatus: http.StatusNotFound},
+		{name: "healthz returns 200 with static dir", staticDir: dir, path: "/healthz", wantStatus: http.StatusOK},
+		{name: "healthz returns 200 without static dir", path: "/healthz", wantStatus: http.StatusOK},
 	}
 
 	for _, tt := range tests {

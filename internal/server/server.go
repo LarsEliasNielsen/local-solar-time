@@ -40,10 +40,11 @@ func New(c clock.Clock, cadence time.Duration) *Server {
 	return &Server{Clock: c, Cadence: cadence, Logger: zerolog.Nop(), done: make(chan struct{})}
 }
 
-// Handler routes /ws to the WebSocket endpoint and, when StaticDir is set, everything else to the frontend files.
+// Handler routes /ws to the WebSocket endpoint, /healthz to a 200 health check and, when StaticDir is set, everything else to the frontend files.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", s.handleWS)
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {})
 	if s.StaticDir != "" {
 		mux.Handle("/", staticHandler(s.StaticDir))
 	}
