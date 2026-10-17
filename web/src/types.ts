@@ -15,6 +15,7 @@ export interface PolarCap {
 }
 
 export interface SolarUpdate {
+  utc: string;
   solar_time: string | null;
   equation_of_time_minutes: number;
   utc_offset_seconds: number | null;

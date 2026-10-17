@@ -45,6 +45,27 @@ func TestToUpdateResponseNormalDay(t *testing.T) {
 	}
 }
 
+func TestToUpdateResponseUTC(t *testing.T) {
+	when := time.Date(2026, 6, 21, 12, 0, 0, 123456789, time.FixedZone("CEST", 2*3600))
+	const want = "2026-06-21T10:00:00.123456789Z"
+
+	tests := []struct {
+		name string
+		lat  float64
+	}{
+		{"normal day", 55.6761},
+		{"polar cap", 90},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := marshalToMap(t, toUpdateResponse(solar.Compute(when, tt.lat, 12.5683)))
+			if got := m["utc"]; got != want {
+				t.Errorf("utc = %v, want %s", got, want)
+			}
+		})
+	}
+}
+
 func TestToUpdateResponsePolarCap(t *testing.T) {
 	when := time.Date(2026, 6, 21, 12, 0, 0, 0, time.UTC)
 	m := marshalToMap(t, toUpdateResponse(solar.Compute(when, 90, 0)))

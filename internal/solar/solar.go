@@ -25,6 +25,7 @@ type Event struct {
 // valid; every other field is its zero value and PolarCapReason explains
 // why.
 type Result struct {
+	UTC                   time.Time // the instant the result was computed for.
 	SolarTime             *string
 	EquationOfTimeMinutes float64
 	UTCOffsetSeconds      *int
@@ -49,6 +50,7 @@ func Compute(t time.Time, lat, lon float64) Result {
 
 	if math.Abs(lat) > polarCapLatitude {
 		return Result{
+			UTC:                   t.UTC(),
 			AltitudeDeg:           alt,
 			EquationOfTimeMinutes: eot,
 			PolarCapReason:        polarCapReason,
@@ -69,6 +71,7 @@ func Compute(t time.Time, lat, lon float64) Result {
 	prevSunset, nextSunset := previousNextEvent(t, lat, lon, false)
 
 	return Result{
+		UTC:                   t.UTC(),
 		SolarTime:             &solarTime,
 		EquationOfTimeMinutes: eot,
 		UTCOffsetSeconds:      &utcOffsetSeconds,

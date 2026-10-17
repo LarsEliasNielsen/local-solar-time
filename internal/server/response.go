@@ -35,6 +35,7 @@ type PolarCapPayload struct {
 // null above the polar cap, which a plain `omitempty` tag can't express
 // since both cases are a nil pointer in Go.
 type UpdateResponse struct {
+	UTC                   time.Time        `json:"utc"`
 	SolarTime             *string          `json:"solar_time"`
 	EquationOfTimeMinutes float64          `json:"equation_of_time_minutes"`
 	UTCOffsetSeconds      *int             `json:"utc_offset_seconds"`
@@ -51,6 +52,7 @@ type UpdateResponse struct {
 
 func (u UpdateResponse) MarshalJSON() ([]byte, error) {
 	m := map[string]any{
+		"utc":                      u.UTC,
 		"solar_time":               u.SolarTime,
 		"equation_of_time_minutes": u.EquationOfTimeMinutes,
 		"utc_offset_seconds":       u.UTCOffsetSeconds,
@@ -94,6 +96,7 @@ func toEventPayload(e *solar.Event) *EventPayload {
 // toUpdateResponse maps the solar engine's flat Result onto the canonical nested wire schema.
 func toUpdateResponse(r solar.Result) UpdateResponse {
 	resp := UpdateResponse{
+		UTC:                   r.UTC,
 		SolarTime:             r.SolarTime,
 		EquationOfTimeMinutes: r.EquationOfTimeMinutes,
 		UTCOffsetSeconds:      r.UTCOffsetSeconds,
