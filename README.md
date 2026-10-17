@@ -23,6 +23,8 @@ make docker-up   # builds the image and starts the service
 
 Open `http://localhost:8080` for the web UI, or connect a headless client directly to the WebSocket endpoint (see [Backend](#backend)).
 
+For the hosted deployment on Fly.io, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ## Frontend
 
 A Vite + React + TypeScript single-page app. In the Docker image the Go binary serves the built files from `SOLAR_STATIC_DIR` alongside `/ws`, falling back to `index.html` for unknown paths.
@@ -47,6 +49,7 @@ The server then streams JSON updates at the configured cadence:
 
 ```json
 {
+  "utc": "2026-06-14T12:38:08.418227Z",
   "solar_time": "12:34:56",
   "equation_of_time_minutes": -3.2,
   "utc_offset_seconds": -192,
@@ -66,6 +69,8 @@ The server then streams JSON updates at the configured cadence:
   "next_sunset":      { "solar_time": "19:09:00", "utc": "2026-06-14T17:12:00Z" }
 }
 ```
+
+`utc` is the server instant the update was computed for, with sub-second precision.
 
 Above latitude ~89.4°, `solar_time`, `azimuth_deg`, `solar_noon`, `today`, and the four `*_sunrise`/`*_sunset` fields are `null`, and a `polar_cap` object with a `reason` string is added instead. During polar day or polar night at lower latitudes, `today.sunrise`/`today.sunset` are `null` but the bracketing `previous_sunrise`/`next_sunrise`/`previous_sunset`/`next_sunset` fields are omitted entirely.
 
