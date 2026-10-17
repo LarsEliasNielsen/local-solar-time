@@ -28,6 +28,7 @@ const (
 const (
 	dialTimeout   = 60 * time.Second
 	sampleTimeout = 10 * time.Second
+	ntpAttempts   = 3
 )
 
 var csvHeader = []string{
@@ -82,14 +83,11 @@ func main() {
 func probe(url, ntpHost string, samples int) (result, error) {
 	r := result{RunAt: time.Now().UTC()}
 
-	ntpResp, err := ntp.Query(ntpHost)
+	ntpOffset, err := queryNTP(ntpHost)
 	if err != nil {
-		return r, fmt.Errorf("query ntp %s: %w", ntpHost, err)
+		return r, err
 	}
-	if err := ntpResp.Validate(); err != nil {
-		return r, fmt.Errorf("validate ntp response: %w", err)
-	}
-	r.NTPOffset = ntpResp.ClockOffset
+	r.NTPOffset = ntpOffset
 
 	dialer := websocket.Dialer{HandshakeTimeout: dialTimeout}
 	start := time.Now()
@@ -153,6 +151,23 @@ func probe(url, ntpHost string, samples int) (result, error) {
 	closeMsg := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")
 	_ = conn.WriteControl(websocket.CloseMessage, closeMsg, time.Now().Add(time.Second))
 	return r, nil
+}
+
+// queryNTP returns the local clock offset, retrying because a pool lookup can hand out an unresponsive server.
+func queryNTP(host string) (time.Duration, error) {
+	var errs []error
+	for attempt := 1; attempt <= ntpAttempts; attempt++ {
+		resp, err := ntp.Query(host)
+		if err == nil {
+			err = resp.Validate()
+		}
+		if err == nil {
+			return resp.ClockOffset, nil
+		}
+		log.Printf("drift-probe: ntp attempt %d/%d: %v", attempt, ntpAttempts, err)
+		errs = append(errs, err)
+	}
+	return 0, fmt.Errorf("query ntp %s: %w", host, errors.Join(errs...))
 }
 
 // offset is the server clock's error: utc minus the NTP-corrected moment the server sent the update.

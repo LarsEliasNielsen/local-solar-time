@@ -20,3 +20,7 @@ local-solar-time*.md
 # Frontend
 web/node_modules/
 web/dist/
+
+# Drift probe output
+tools/drift-probe/drift.csv
+tools/drift-probe/drift-*.csv
