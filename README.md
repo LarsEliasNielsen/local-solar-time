@@ -1,7 +1,17 @@
 # local-solar-time
 
 <p align="center">
-  <img src="docs/images/solar-clock-screenshot.png" alt="Local Solar Time frontend showing the solar clock" width="600">
+  <a href="https://local-solar-time.fly.dev">
+    <img src="docs/images/solar-clock-screenshot.png" alt="Local Solar Time frontend showing the solar clock" width="600">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://local-solar-time.fly.dev">
+    <img src="https://img.shields.io/badge/Live_app-local--solar--time.fly.dev-ffb703?style=for-the-badge&labelColor=111827" alt="Live app: local-solar-time.fly.dev">
+  </a>
+  <br>
+  <strong>See your own solar time live at <a href="https://local-solar-time.fly.dev">local-solar-time.fly.dev</a></strong>
 </p>
 
 A Go service that streams apparent (true) solar time, Sun position, and rise/set events over WebSocket for any latitude/longitude, computed continuously from the server's own NTP-disciplined clock. Ships with a Vite + React + TypeScript web frontend, served by the same Go binary, that visualizes solar time on an SVG half-circle clock, with browser geolocation, manual coordinate input, and automatic reconnection.
