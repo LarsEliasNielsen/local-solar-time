@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import SolarClock from './SolarClock';
 import ClockDisplay from './ClockDisplay';
+import ClockIntro from './ClockIntro';
+import ClockLegend from './ClockLegend';
 import SolarInfo from './SolarInfo';
 import LocationControls from './LocationControls';
 import { getLocation } from './geo';
@@ -184,6 +186,8 @@ export default function App() {
     <div style={{ maxWidth: '640px', margin: '0 auto', padding: '16px', fontFamily: 'system-ui, sans-serif', color: THEME.textPrimary }}>
       <ClockDisplay solarTime={solarTime} />
       <SolarClock solarTime={solarTime} today={today} altitudeDeg={altitudeDeg} locationChanged={locationChanged} />
+      <ClockLegend />
+      <ClockIntro />
       <SolarInfo today={today} solarNoon={solarNoon} altitudeDeg={altitudeDeg} polarCap={polarCap} />
       {appState.phase === 'reconnecting' && (
         <p role="status" style={{ fontSize: '0.8rem', color: THEME.textWarning, margin: '4px 0' }}>
