@@ -3,12 +3,18 @@ import SolarClock from './SolarClock';
 import ClockDisplay from './ClockDisplay';
 import ClockIntro from './ClockIntro';
 import ClockLegend from './ClockLegend';
+import InfoTip from './InfoTip';
 import SolarInfo from './SolarInfo';
 import LocationControls from './LocationControls';
 import { getLocation } from './geo';
 import { openSocket } from './ws';
 import { THEME } from './theme';
 import type { SolarUpdate, LocationSource } from './types';
+
+const PRIVACY_NOTE =
+  'Your browser asks before sharing your location. Whether shared or typed in, your coordinates go to our server ' +
+  'only to calculate the sun for your spot. They are never stored or logged, and the site uses no cookies or ' +
+  'tracking. Without permission, the app shows Copenhagen until you enter coordinates.';
 
 const DEFAULT_LAT = 55.6761;
 const DEFAULT_LON = 12.5683;
@@ -200,6 +206,17 @@ export default function App() {
         onLatChange={setLatInput} onLonChange={setLonInput}
         onSubmit={handleManualSubmit} onGeoButton={handleGeoButton}
       />
+      <footer style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginTop: '32px', fontSize: '0.75rem', color: THEME.textDim }}>
+        <span>
+          <a href="https://github.com/LarsEliasNielsen/local-solar-time" style={{ color: 'inherit' }}>
+            LarsEliasNielsen/local-solar-time
+          </a>{' '}
+          on GitHub
+        </span>
+        <span aria-hidden="true">·</span>
+        <span>Privacy</span>
+        <InfoTip label="privacy" ariaLabel="How your location is handled" text={PRIVACY_NOTE} align="right" placement="top" />
+      </footer>
     </div>
   );
 }

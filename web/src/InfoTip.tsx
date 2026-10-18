@@ -5,10 +5,12 @@ interface InfoTipProps {
   text: string;
   label: string;
   align?: 'left' | 'right';
+  placement?: 'top' | 'bottom';
+  ariaLabel?: string;
 }
 
 // Small "?" badge that shows a plain-language hint on hover, focus, or tap.
-export default function InfoTip({ text, label, align = 'left' }: InfoTipProps) {
+export default function InfoTip({ text, label, align = 'left', placement = 'bottom', ariaLabel }: InfoTipProps) {
   const [hovered, setHovered] = useState(false);
   const [pinned, setPinned] = useState(false);
   const id = useId();
@@ -40,7 +42,7 @@ export default function InfoTip({ text, label, align = 'left' }: InfoTipProps) {
     >
       <button
         type="button"
-        aria-label={`What is ${label}?`}
+        aria-label={ariaLabel ?? `What is ${label}?`}
         aria-describedby={open ? id : undefined}
         aria-expanded={open}
         onClick={() => setPinned(true)}
@@ -68,7 +70,7 @@ export default function InfoTip({ text, label, align = 'left' }: InfoTipProps) {
           role="tooltip"
           style={{
             position: 'absolute',
-            top: 'calc(100% + 6px)',
+            [placement === 'bottom' ? 'top' : 'bottom']: 'calc(100% + 6px)',
             [align]: 0,
             zIndex: 10,
             width: 'max-content',
