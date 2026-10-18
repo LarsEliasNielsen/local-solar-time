@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="https://local-solar-time.fly.dev">
-    <img src="docs/images/solar-clock-screenshot.png" alt="Local Solar Time frontend showing the solar clock" width="600">
+    <img src="docs/images/logo.svg" alt="Local Solar Time logo: a half-circle solar clock with the sun high in the day arc" width="120">
   </a>
 </p>
 

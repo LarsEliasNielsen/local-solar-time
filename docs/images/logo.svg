@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-labelledby="title">
+  <title id="title">Local Solar Time</title>
+  <rect width="200" height="200" rx="40" fill="#111827"/>
+  <path d="M100 140 L28 140 A72 72 0 0 1 49.09 89.09 Z" fill="#4e5355"/>
+  <path d="M100 140 L49.09 89.09 A72 72 0 0 1 150.91 89.09 Z" fill="#ffb703"/>
+  <path d="M100 140 L150.91 89.09 A72 72 0 0 1 172 140 Z" fill="#4e5355"/>
+  <line x1="100" y1="140" x2="118.63" y2="70.45" stroke="white" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="118.63" cy="70.45" r="10" fill="#ffb703" stroke="white" stroke-width="4"/>
+  <circle cx="100" cy="140" r="3" fill="white"/>
+</svg>
